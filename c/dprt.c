@@ -1,11 +1,11 @@
 /* dprt.c
 ** Entry point for Data Pipeline Reduction Routines
-** $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/dprt.c,v 0.8 2002-11-26 17:38:13 cjm Exp $
+** $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/dprt.c,v 0.9 2004-01-15 16:04:13 cjm Exp $
 */
 /**
  * dprt.c is the entry point for the Data Reduction Pipeline (Real Time).
  * @author Chris Mottram, LJMU
- * @version $Revision: 0.8 $
+ * @version $Revision: 0.9 $
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,7 +37,7 @@
 /**
  * Revision Control System identifier.
  */
-static char rcsid[] = "$Id: dprt.c,v 0.8 2002-11-26 17:38:13 cjm Exp $";
+static char rcsid[] = "$Id: dprt.c,v 0.9 2004-01-15 16:04:13 cjm Exp $";
 /**
  * Internal Error Number - set this to a unique value for each location an error occurs.
  */
@@ -230,7 +230,7 @@ int DpRt_Calibrate_Reduce(char *input_filename,char **output_filename,double *me
 			run_mode = QUICK_REDUCTION;
 		fprintf(stdout,"DpRt_Calibrate_Reduce:Calling Calibration reduction routine (dprt_process(%d)).\n",
 			run_mode);
-		retval = dprt_process(input_filename,run_mode,&l1mean,&l1seeing, 
+		retval = dprt_process(input_filename,run_mode,output_filename,&l1mean,&l1seeing, 
 			&l1xpix,&l1ypix,&l1counts,&l1sat,&l1photom,&l1skybright);
 		fprintf(stdout,"DpRt_Calibrate_Reduce:Calibration reduction routine (dprt_process) returned %d.\n",
 			retval);
@@ -243,7 +243,6 @@ int DpRt_Calibrate_Reduce(char *input_filename,char **output_filename,double *me
 			(*peak_counts) = 0;
 			return FALSE;
 		}
-		(*output_filename) = NULL; /* diddly fix */
 		(*mean_counts) = (double)l1mean;
 		(*peak_counts) = (double)l1counts;
 	}
@@ -303,7 +302,7 @@ int DpRt_Expose_Reduce(char *input_filename,char **output_filename,double *seein
 		else
 			run_mode = QUICK_REDUCTION;
 		fprintf(stdout,"DpRt_Expose_Reduce:Calling Exposure reduction routine (dprt_process(%d)).\n",run_mode);
-		retval = dprt_process(input_filename,run_mode,&l1mean,&l1seeing, 
+		retval = dprt_process(input_filename,run_mode,output_filename,&l1mean,&l1seeing, 
 			&l1xpix,&l1ypix,&l1counts,&l1sat,&l1photom,&l1skybright);
 		fprintf(stdout,"DpRt_Expose_Reduce:Exposure reduction routine (dprt_process) returned %d.\n",retval);
 		if(retval == TRUE)
@@ -320,7 +319,6 @@ int DpRt_Expose_Reduce(char *input_filename,char **output_filename,double *seein
 			(*saturated) = FALSE;
 			return FALSE;
 		}
-		(*output_filename) = NULL; /* diddly fix */
 		(*seeing) = (double)l1seeing;
 		(*counts) = (double)l1counts;
 		(*x_pix) = (double)l1xpix;
@@ -365,7 +363,7 @@ int DpRt_Make_Master_Bias(char *directory_name)
 		if(make_master_bias)
 		{
 			fprintf(stdout,"DpRt_Make_Master_Bias:Calling Make Master Bias routine (dprt_process).\n");
-			retval = dprt_process(directory_name,MAKE_BIAS,&l1mean,&l1seeing, 
+			retval = dprt_process(directory_name,MAKE_BIAS,NULL,&l1mean,&l1seeing, 
 					      &l1xpix,&l1ypix,&l1counts,&l1sat,&l1photom,&l1skybright);
 			fprintf(stdout,"DpRt_Make_Master_Bias:Make Master Bias routine (dprt_process) returned %d.\n",
 				retval);
@@ -418,7 +416,7 @@ int DpRt_Make_Master_Flat(char *directory_name)
 		if(make_master_flat)
 		{
 			fprintf(stdout,"DpRt_Make_Master_Flat:Calling Make Master Flat routine (dprt_process).\n");
-			retval = dprt_process(directory_name,MAKE_FLAT,&l1mean,&l1seeing, 
+			retval = dprt_process(directory_name,MAKE_FLAT,NULL,&l1mean,&l1seeing, 
 					      &l1xpix,&l1ypix,&l1counts,&l1sat,&l1photom,&l1skybright);
 			fprintf(stdout,"DpRt_Make_Master_Flat:Make Master Flat routine (dprt_process) returned %d.\n",
 				retval);
@@ -1236,6 +1234,9 @@ static int DpRt_Get_Property_Boolean_From_C_File(char *keyword,int *value)
 
 /*
 ** $Log: not supported by cvs2svn $
+** Revision 0.8  2002/11/26 17:38:13  cjm
+** Integrated librjs_dprt.
+**
 ** Revision 0.7  2002/05/20 11:02:09  cjm
 ** Added photometricity, sky_brightness and saturated to DpRt_Expose_Reduce.
 **
