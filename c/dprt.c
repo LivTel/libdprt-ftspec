@@ -1,14 +1,15 @@
 /* dprt.c
 ** Entry point for Data Pipeline Reduction Routines
-** $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/dprt.c,v 0.1 1999-06-24 11:06:42 dev Exp $
+** $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/dprt.c,v 0.2 1999-06-30 15:07:47 dev Exp $
 */
 /**
  * dprt.c is the entry point for the Data Reduction Pipeline (Real Time).
  * @author Lee Howells, LJMU
- * @version $Revision: 0.1 $
+ * @version $Revision: 0.2 $
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "dprt.h"
 
 /* ------------------------------------------------------- */
@@ -17,7 +18,7 @@
 /**
  * Revision Control System identifier.
  */
-static char rcsid[] = "$Id: dprt.c,v 0.1 1999-06-24 11:06:42 dev Exp $";
+static char rcsid[] = "$Id: dprt.c,v 0.2 1999-06-30 15:07:47 dev Exp $";
 /**
  * Internal Error Number - set this to a unique value for each location an error occurs.
  */
@@ -39,8 +40,9 @@ static char DpRt_Error_String[DPRT_ERROR_STRING_LENGTH] = "";
  * @see #DpRt_Error_Number
  * @see #DpRt_Error_String
  * @see #DpRt_Abort
+
  */
-static int DpRt_Abort = FALSE;
+static volatile int DpRt_Abort = FALSE;/* diddly volatile as thread dependant */
 
 /* ------------------------------------------------------- */
 /* internal function declarations */
@@ -82,6 +84,9 @@ int DpRt_Calibrate_Reduce(char *input_filename,char **output_filename,double *me
   if(DpRt_Get_Abort())
   {
     /* tidy up anything that needs tidying as a result of this routine here */
+    (*mean_counts) = 0.0;
+    (*peak_counts) = 0.0;
+    (*output_filename) = NULL;
     DpRt_Error_Number = 1;
     sprintf(DpRt_Error_String,"DpRt_Calibrate_Reduce(%s): Operation Aborted.\n",input_filename);
     return FALSE;
@@ -97,6 +102,9 @@ int DpRt_Calibrate_Reduce(char *input_filename,char **output_filename,double *me
   if((*output_filename) == NULL)
   {
     /* tidy up anything that needs tidying as a result of this routine here */
+    (*mean_counts) = 0.0;
+    (*peak_counts) = 0.0;
+    (*output_filename) = NULL;
     DpRt_Error_Number = 2;
     sprintf(DpRt_Error_String,"DpRt_Reduce(%s): Memory Allocation Error.\n",input_filename);
     return FALSE;
@@ -145,7 +153,12 @@ int DpRt_Expose_Reduce(char *input_filename,char **output_filename,double *seein
   if(DpRt_Get_Abort())
   {
     /* tidy up anything that needs tidying as a result of this routine here */
-    DpRt_Error_Number = 1;
+    (*output_filename) = NULL;
+    (*seeing) = 0.0;
+    (*counts) = 0.0;
+    (*x_pix) = 0.0;
+    (*y_pix) = 0.0;
+    DpRt_Error_Number = 3;
     sprintf(DpRt_Error_String,"DpRt_Expose_Reduce(%s): Operation Aborted.\n",input_filename);
     return FALSE;
   }
@@ -162,7 +175,12 @@ int DpRt_Expose_Reduce(char *input_filename,char **output_filename,double *seein
   if((*output_filename) == NULL)
   {
     /* tidy up anything that needs tidying as a result of this routine here */
-    DpRt_Error_Number = 2;
+    (*output_filename) = NULL;
+    (*seeing) = 0.0;
+    (*counts) = 0.0;
+    (*x_pix) = 0.0;
+    (*y_pix) = 0.0;
+    DpRt_Error_Number = 4;
     sprintf(DpRt_Error_String,"DpRt_Expose_Reduce(%s): Memory Allocation Error.\n",input_filename);
     return FALSE;
   }
@@ -224,4 +242,7 @@ static int DpRt_Get_Abort(void)
 
 /*
 ** $Log: not supported by cvs2svn $
+** Revision 0.1  1999/06/24 11:06:42  dev
+** initial revision
+**
 */
