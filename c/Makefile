@@ -1,4 +1,4 @@
-# $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/Makefile,v 0.5 1999-08-31 12:50:15 cjm Exp $
+# $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/Makefile,v 0.6 1999-09-08 13:56:34 cjm Exp $
 
 include	../../Makefile.common
 include	../Makefile.common
@@ -35,8 +35,8 @@ checkout:
 	cd $(INCDIR); $(CO) $(CO_OPTIONS) $(HEADERS);
 
 checkin:
-	-$(CI) $(SRCS)
-	-(cd $(INCDIR); $(CI) $(HEADERS);)
+	-$(CI) $(CI_OPTIONS) $(SRCS)
+	-(cd $(INCDIR); $(CI) $(CI_OPTIONS) $(HEADERS);)
 
 staticdepend:
 	makedepend -- $(CFLAGS) -- $(SRCS)
@@ -56,6 +56,9 @@ tidy:
 
 #
 # $Log: not supported by cvs2svn $
+# Revision 0.5  1999/08/31 12:50:15  cjm
+# Changed LIBDIR to LT_LIB_HOME.
+#
 # Revision 0.4  1999/08/24 16:05:29  cjm
 # Changed for libccd1 directory structure.
 # Improved docs rule.
