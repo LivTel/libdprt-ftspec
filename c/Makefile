@@ -1,10 +1,10 @@
-# $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/Makefile,v 0.7 1999-12-10 12:21:44 cjm Exp $
+# $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/Makefile,v 0.8 2001-05-15 18:38:38 cjm Exp $
 
 include	../../Makefile.common
 include	../Makefile.common
 
-INCDIR 		= $(DPRT_SRC_HOME)/include
-DOCSDIR 	= $(DPRT_DOC_HOME)/cdocs
+INCDIR 		= $(LIBDPRT_SRC_HOME)/include
+DOCSDIR 	= $(LIBDPRT_DOC_HOME)/cdocs
 CFLAGS 		= -g $(CCHECKFLAG) -I$(INCDIR) -I$(JNIINCDIR) -I$(JNIMDINCDIR)
 LINTFLAGS 	= -I$(INCDIR) -I$(JNIINCDIR) -I$(JNIMDINCDIR)
 DOCFLAGS 	= -static
@@ -15,7 +15,11 @@ DOCS 		= $(SRCS:%.c=$(DOCSDIR)/%.html)
 
 top: shared docs
 
-shared: $(LT_LIB_HOME)/libdprt.so
+shared: $(INCDIR)/DpRtLibrary.h $(LT_LIB_HOME)/libdprt.so
+
+$(INCDIR)/DpRtLibrary.h: $(DPRT_BIN_HOME)/java/DpRtLibrary.class
+	$(JAVAH) -jni -d $(INCDIR) -classpath $(DPRT_BIN_HOME)/java:$(CLASSPATH) DpRtLibrary
+	$(TOUCH) $@
 
 $(LT_LIB_HOME)/libdprt.so: $(OBJS)
 	cc $(CCSHAREDFLAG) $(CFLAGS) $(OBJS) -o $@ $(TIMELIB)
@@ -50,7 +54,8 @@ lint:
 	$(LINT)	$(LINTFLAGS) $(SRCS)
 
 clean:
-	-$(RM) $(RM_OPTIONS) $(OBJS) $(LT_LIB_HOME)/libdprt.so $(LT_LIB_HOME)/libdprt.a $(TIDY_OPTIONS)
+	-$(RM) $(RM_OPTIONS) $(OBJS) $(LT_LIB_HOME)/libdprt.so $(LT_LIB_HOME)/libdprt.a 
+	-$(RM) $(RM_OPTIONS) $(INCDIR)/DpRtLibrary.h $(TIDY_OPTIONS)
 
 tidy:
 	-$(RM)  $(RM_OPTIONS) $(TIDY_OPTIONS)
@@ -61,6 +66,9 @@ backup: tidy
 
 #
 # $Log: not supported by cvs2svn $
+# Revision 0.7  1999/12/10 12:21:44  cjm
+# Added backup target.
+#
 # Revision 0.6  1999/09/08 13:56:34  cjm
 # Changed checkin target to use CI_OPTIONS.
 #
@@ -84,3 +92,18 @@ backup: tidy
 #
 # DO NOT DELETE
 
+DpRtLibrary.o: /usr/include/stdio.h /usr/include/sys/feature_tests.h
+DpRtLibrary.o: /usr/include/sys/isa_defs.h /usr/include/sys/va_list.h
+DpRtLibrary.o: /usr/include/stdio_tag.h /usr/include/stdio_impl.h
+DpRtLibrary.o: /usr/include/stdlib.h /usr/java1.2/include/jni.h
+DpRtLibrary.o: /usr/include/stdarg.h /usr/java1.2/include/solaris/jni_md.h
+DpRtLibrary.o: /usr/include/sys/types.h /usr/include/sys/machtypes.h
+DpRtLibrary.o: /usr/include/sys/int_types.h /usr/include/sys/select.h
+DpRtLibrary.o: /usr/include/sys/time.h /usr/include/sys/time.h
+DpRtLibrary.o: /usr/include/limits.h
+DpRtLibrary.o: /space/home/dev/src/libdprt/include/dprt.h
+dprt.o: /usr/include/stdio.h /usr/include/sys/feature_tests.h
+dprt.o: /usr/include/sys/isa_defs.h /usr/include/sys/va_list.h
+dprt.o: /usr/include/stdio_tag.h /usr/include/stdio_impl.h
+dprt.o: /usr/include/stdlib.h /usr/include/string.h
+dprt.o: /space/home/dev/src/libdprt/include/dprt.h
