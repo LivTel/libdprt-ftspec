@@ -1,31 +1,34 @@
-# $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/Makefile,v 0.3 1999-07-12 16:05:00 cjm Exp $
+# $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/Makefile,v 0.4 1999-08-24 16:05:29 cjm Exp $
 
-include			../../Makefile.common
+include	../../Makefile.common
+include	../Makefile.common
 
-INCDIR = ../include
-DOCSDIR = ../cdocs
-JAVADIR = ../java
-CFLAGS = -g $(CCHECKFLAG) -I$(INCDIR) -I$(JNIINCDIR) -I$(JNIMDINCDIR)
-LINTFLAGS = -I$(INCDIR) -I$(JNIINCDIR) -I$(JNIMDINCDIR)
-DOCFLAGS = -static
-SRCS 		= 	DpRtLibrary.c dprt.c
-HEADERS		=	$(SRCS:%.c=%.h)
-OBJS		=	$(SRCS:%.c=%.o)
-DOCS 		= 	$(SRCS:%.c=$(DOCSDIR)/%.html)
+LIBDIR 		= $(LT_BIN_HOME)/lib
+INCDIR 		= $(DPRT_SRC_HOME)/include
+DOCSDIR 	= $(DPRT_DOC_HOME)/cdocs
+CFLAGS 		= -g $(CCHECKFLAG) -I$(INCDIR) -I$(JNIINCDIR) -I$(JNIMDINCDIR)
+LINTFLAGS 	= -I$(INCDIR) -I$(JNIINCDIR) -I$(JNIMDINCDIR)
+DOCFLAGS 	= -static
+SRCS 		= DpRtLibrary.c dprt.c
+HEADERS		= $(SRCS:%.c=%.h)
+OBJS		= $(SRCS:%.c=%.o)
+DOCS 		= $(SRCS:%.c=$(DOCSDIR)/%.html)
 
-top: shared
+top: shared docs
 
-shared: $(JAVADIR)/libdprt.so $(DOCS)
+shared: $(LIBDIR)/libdprt.so
 
-$(JAVADIR)/libdprt.so: $(OBJS)
+$(LIBDIR)/libdprt.so: $(OBJS)
 	cc $(CCSHAREDFLAG) $(CFLAGS) $(OBJS) -o $@ $(TIMELIB)
 
-static: libdprt.a $(DOCS)
+static: $(LIBDIR)/libdprt.a
 
-libdprt.a: $(OBJS)
+$(LIBDIR)/libdprt.a: $(OBJS)
 	ar rcv $@ $?
 
-$(DOCS) : $(OBJS)
+docs: $(DOCS)
+
+$(DOCS) : $(SRCS)
 	-$(CDOC) -d $(DOCSDIR) -h $(INCDIR) $(DOCFLAGS) $(SRCS)
 
 checkout:
@@ -46,7 +49,7 @@ lint:
 	$(LINT)	$(LINTFLAGS) $(SRCS)
 
 clean:
-	-$(RM) $(RM_OPTIONS) $(OBJS) $(JAVADIR)/libdprt.so libdprt.a $(TIDY_OPTIONS)
+	-$(RM) $(RM_OPTIONS) $(OBJS) $(LIBDIR)/libdprt.so $(LIBDIR)/libdprt.a $(TIDY_OPTIONS)
 
 tidy:
 	-$(RM)  $(RM_OPTIONS) $(TIDY_OPTIONS)
@@ -54,6 +57,9 @@ tidy:
 
 #
 # $Log: not supported by cvs2svn $
+# Revision 0.3  1999/07/12 16:05:00  cjm
+# Changes to ignore CDoc return value.
+#
 # Revision 0.2  1999/06/25 09:50:59  dev
 # changed tidy and checkin rules so that errors are ignored
 # (e.g. files already deleted/files already checked in)
