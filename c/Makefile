@@ -1,18 +1,20 @@
-# $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/Makefile,v 0.12 2004-01-30 16:44:45 cjm Exp $
+# $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/Makefile,v 0.13 2004-03-31 08:56:16 cjm Exp $
 
+include	../../../Makefile.common
 include	../../Makefile.common
 include	../Makefile.common
 
-INCDIR 		= $(LIBDPRT_SRC_HOME)/include
+LIBNAME		= $(LIBDPRT_HOME)_$(CCS_HOME)
+INCDIR 		= $(LIBDPRT_CCS_SRC_HOME)/include
 RJSINCDIR	= $(LIBDPRT_SRC_HOME)/rjs
 OBJECTINCDIR	= $(LIBDPRT_SRC_HOME)/object/include
-DOCSDIR 	= $(LIBDPRT_DOC_HOME)/cdocs
-BINDIR		= $(LIBDPRT_BIN_HOME)/c/$(HOSTTYPE)
+DOCSDIR 	= $(LIBDPRT_CCS_DOC_HOME)/cdocs
+BINDIR		= $(LIBDPRT_CCS_BIN_HOME)/c/$(HOSTTYPE)
 CFLAGS 		= -g $(CCHECKFLAG) -I$(INCDIR) -I$(CFITSIOINCDIR) -I$(JNIINCDIR) -I$(JNIMDINCDIR) -I$(RJSINCDIR) \
 		-I$(OBJECTINCDIR) -L$(LT_LIB_HOME)
 LINTFLAGS 	= -I$(INCDIR) -I$(JNIINCDIR) -I$(JNIMDINCDIR)
 DOCFLAGS 	= -static
-SRCS 		= dprt.c DpRtLibrary.c
+SRCS 		= dprt.c ngat_dprt_ccs_DpRtLibrary.c
 HEADERS		= $(SRCS:%.c=%.h)
 OBJS		= $(SRCS:%.c=$(BINDIR)/%.o)
 DOCS 		= $(SRCS:%.c=$(DOCSDIR)/%.html)
@@ -20,21 +22,21 @@ LIBS		= -lcfitsio -lrjs_dprt -ldprt_object
 
 top: shared docs
 
-shared: $(INCDIR)/DpRtLibrary.h $(LT_LIB_HOME)/libdprt.so
+shared: $(INCDIR)/ngat_dprt_ccs_DpRtLibrary.h $(LT_LIB_HOME)/$(LIBNAME).so
 
-$(INCDIR)/DpRtLibrary.h: $(DPRT_BIN_HOME)/java/DpRtLibrary.class
-	$(JAVAH) -jni -d $(INCDIR) -classpath $(DPRT_BIN_HOME)/java:$(CLASSPATH) DpRtLibrary
+$(INCDIR)/ngat_dprt_ccs_DpRtLibrary.h: $(DPRT_BIN_HOME)/java/ngat/dprt/ccs/DpRtLibrary.class
+	$(JAVAH) -jni -d $(INCDIR) -classpath $(DPRT_BIN_HOME)/java:$(CLASSPATH) ngat.dprt.ccs.DpRtLibrary
 	$(TOUCH) $@
 
-$(LT_LIB_HOME)/libdprt.so: $(OBJS)
+$(LT_LIB_HOME)/$(LIBNAME).so: $(OBJS)
 	$(CC) $(CCSHAREDFLAG) $(CFLAGS) $(OBJS) -o $@ $(TIMELIB) $(LIBS) $(SOCKETLIB)
 
 $(BINDIR)/%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-static: $(LT_LIB_HOME)/libdprt.a
+static: $(LT_LIB_HOME)/$(LIBNAME).a
 
-$(LT_LIB_HOME)/libdprt.a: $(OBJS)
+$(LT_LIB_HOME)/$(LIBNAME).a: $(OBJS)
 	ar rcv $@ $?
 
 docs: $(DOCS)
@@ -42,12 +44,12 @@ docs: $(DOCS)
 $(DOCS) : $(SRCS)
 	-$(CDOC) -d $(DOCSDIR) -h $(INCDIR) $(DOCFLAGS) $(SRCS)
 
-# dont checkout DpRtLibrary.h - it is a machine built header
+# dont checkout ngat_dprt_ccs_DpRtLibrary.h - it is a machine built header
 checkout:
 	$(CO) $(CO_OPTIONS) $(SRCS)
 	cd $(INCDIR); $(CO) $(CO_OPTIONS) dprt.h;
 
-# dont checkin DpRtLibrary.h - it is a machine built header
+# dont checkin ngat_dprt_ccs_DpRtLibrary.h - it is a machine built header
 checkin:
 	-$(CI) $(CI_OPTIONS) $(SRCS)
 	-(cd $(INCDIR); $(CI) $(CI_OPTIONS) dprt.h;)
@@ -62,8 +64,8 @@ lint:
 	$(LINT)	$(LINTFLAGS) $(SRCS)
 
 clean:
-	-$(RM) $(RM_OPTIONS) $(OBJS) $(LT_LIB_HOME)/libdprt.so $(LT_LIB_HOME)/libdprt.a 
-	-$(RM) $(RM_OPTIONS) $(INCDIR)/DpRtLibrary.h $(TIDY_OPTIONS)
+	-$(RM) $(RM_OPTIONS) $(OBJS) $(LT_LIB_HOME)/$(LIBNAME).so $(LT_LIB_HOME)/$(LIBNAME).a 
+	-$(RM) $(RM_OPTIONS) $(INCDIR)/ngat_dprt_ccs_DpRtLibrary.h $(TIDY_OPTIONS)
 
 tidy:
 	-$(RM)  $(RM_OPTIONS) $(TIDY_OPTIONS)
@@ -74,6 +76,9 @@ backup: tidy
 
 #
 # $Log: not supported by cvs2svn $
+# Revision 0.12  2004/01/30 16:44:45  cjm
+# Added dprt_object library and include.
+#
 # Revision 0.11  2002/11/26 18:13:11  cjm
 # Addd lib rjs_dprt linkage.
 #
@@ -112,20 +117,36 @@ backup: tidy
 #
 # DO NOT DELETE
 
-DpRtLibrary.o: /usr/include/stdio.h /usr/include/sys/feature_tests.h
-DpRtLibrary.o: /usr/include/sys/isa_defs.h /usr/include/sys/va_list.h
-DpRtLibrary.o: /usr/include/stdio_tag.h /usr/include/stdio_impl.h
-DpRtLibrary.o: /usr/include/stdlib.h /usr/java1.2/include/jni.h
-DpRtLibrary.o: /usr/include/stdarg.h /usr/java1.2/include/solaris/jni_md.h
-DpRtLibrary.o: /usr/include/sys/types.h /usr/include/sys/machtypes.h
-DpRtLibrary.o: /usr/include/sys/int_types.h /usr/include/sys/select.h
-DpRtLibrary.o: /usr/include/sys/time.h /usr/include/sys/time.h
-DpRtLibrary.o: /usr/include/limits.h
-DpRtLibrary.o: /space/home/dev/src/libdprt/include/dprt.h
 dprt.o: /usr/include/stdio.h /usr/include/sys/feature_tests.h
 dprt.o: /usr/include/sys/isa_defs.h /usr/include/sys/va_list.h
 dprt.o: /usr/include/stdio_tag.h /usr/include/stdio_impl.h
 dprt.o: /usr/include/stdlib.h /usr/include/string.h /usr/include/math.h
 dprt.o: /space/home/dev/src/cfitsio/fitsio.h /usr/include/stddef.h
 dprt.o: /space/home/dev/src/cfitsio/longnam.h
-dprt.o: /space/home/dev/src/libdprt/include/dprt.h
+dprt.o: /space/home/dev/src/libdprt/ccs/include/dprt.h
+dprt.o: /space/home/dev/src/libdprt/rjs/rjs_dprt.h /usr/include/dirent.h
+dprt.o: /usr/include/sys/types.h /usr/include/sys/machtypes.h
+dprt.o: /usr/include/sys/int_types.h /usr/include/sys/select.h
+dprt.o: /usr/include/sys/time.h /usr/include/sys/time.h
+dprt.o: /usr/include/sys/dirent.h
+dprt.o: /space/home/dev/src/libdprt/rjs/lt_filenames.h
+dprt.o: /space/home/dev/src/libdprt/rjs/dprt_libfits.h
+dprt.o: /space/home/dev/src/libdprt/object/include/object.h
+ngat_dprt_ccs_DpRtLibrary.o: /usr/include/stdio.h
+ngat_dprt_ccs_DpRtLibrary.o: /usr/include/sys/feature_tests.h
+ngat_dprt_ccs_DpRtLibrary.o: /usr/include/sys/isa_defs.h
+ngat_dprt_ccs_DpRtLibrary.o: /usr/include/sys/va_list.h
+ngat_dprt_ccs_DpRtLibrary.o: /usr/include/stdio_tag.h
+ngat_dprt_ccs_DpRtLibrary.o: /usr/include/stdio_impl.h /usr/include/stdlib.h
+ngat_dprt_ccs_DpRtLibrary.o: /usr/include/string.h /usr/java1.2/include/jni.h
+ngat_dprt_ccs_DpRtLibrary.o: /usr/include/stdarg.h
+ngat_dprt_ccs_DpRtLibrary.o: /usr/java1.2/include/solaris/jni_md.h
+ngat_dprt_ccs_DpRtLibrary.o: /usr/include/sys/types.h
+ngat_dprt_ccs_DpRtLibrary.o: /usr/include/sys/machtypes.h
+ngat_dprt_ccs_DpRtLibrary.o: /usr/include/sys/int_types.h
+ngat_dprt_ccs_DpRtLibrary.o: /usr/include/sys/select.h
+ngat_dprt_ccs_DpRtLibrary.o: /usr/include/sys/time.h /usr/include/sys/time.h
+ngat_dprt_ccs_DpRtLibrary.o: /usr/include/limits.h
+ngat_dprt_ccs_DpRtLibrary.o: /space/home/dev/src/libdprt/ccs/include/ngat_dprt_ccs_DpRtLibrary.h
+ngat_dprt_ccs_DpRtLibrary.o: /space/home/dev/src/libdprt/object/include/object.h
+ngat_dprt_ccs_DpRtLibrary.o: /space/home/dev/src/libdprt/ccs/include/dprt.h
