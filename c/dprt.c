@@ -1,15 +1,16 @@
 /* dprt.c
 ** Entry point for Data Pipeline Reduction Routines
-** $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/dprt.c,v 0.4 2001-05-15 15:34:11 cjm Exp $
+** $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/dprt.c,v 0.5 2001-05-17 10:04:35 cjm Exp $
 */
 /**
  * dprt.c is the entry point for the Data Reduction Pipeline (Real Time).
  * @author Lee Howells, LJMU
- * @version $Revision: 0.4 $
+ * @version $Revision: 0.5 $
  */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include "dprt.h"
 
 /* ------------------------------------------------------- */
@@ -18,7 +19,7 @@
 /**
  * Revision Control System identifier.
  */
-static char rcsid[] = "$Id: dprt.c,v 0.4 2001-05-15 15:34:11 cjm Exp $";
+static char rcsid[] = "$Id: dprt.c,v 0.5 2001-05-17 10:04:35 cjm Exp $";
 /**
  * Internal Error Number - set this to a unique value for each location an error occurs.
  */
@@ -252,6 +253,9 @@ static int DpRt_Get_Abort(void)
 
 /*
 ** $Log: not supported by cvs2svn $
+** Revision 0.4  2001/05/15 15:34:11  cjm
+** telFocus simulation code added.
+**
 ** Revision 0.3  1999/08/24 16:04:30  cjm
 ** Changed DpRt_Abort comment so CDoc could parse it correctly.
 **
