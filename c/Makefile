@@ -1,4 +1,4 @@
-# $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/Makefile,v 0.1 1999-06-24 11:05:01 dev Exp $
+# $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/Makefile,v 0.2 1999-06-25 09:50:59 dev Exp $
 
 include			../../Makefile.common
 
@@ -30,11 +30,11 @@ $(DOCS) : $(OBJS)
 
 checkout:
 	$(CO) $(CO_OPTIONS) $(SRCS)
-	(cd $(INCDIR); $(CO) $(CO_OPTIONS) $(HEADERS);)
+	cd $(INCDIR); $(CO) $(CO_OPTIONS) $(HEADERS);
 
 checkin:
-	$(CI) $(SRCS)
-	(cd $(INCDIR); $(CI) $(HEADERS);)
+	-$(CI) $(SRCS)
+	-(cd $(INCDIR); $(CI) $(HEADERS);)
 
 staticdepend:
 	makedepend -- $(CFLAGS) -- $(SRCS)
@@ -46,14 +46,17 @@ lint:
 	$(LINT)	$(LINTFLAGS) $(SRCS)
 
 clean:
-	$(RM) $(RM_OPTIONS) $(OBJS) $(JAVADIR)/libdprt.so libdprt.a $(TIDY_OPTIONS)
+	-$(RM) $(RM_OPTIONS) $(OBJS) $(JAVADIR)/libdprt.so libdprt.a $(TIDY_OPTIONS)
 
 tidy:
-	$(RM) $(RM_OPTIONS) $(TIDY_OPTIONS)
-	(cd $(INCDIR); $(RM) $(RM_OPTIONS) $(TIDY_OPTIONS);)
+	-$(RM)  $(RM_OPTIONS) $(TIDY_OPTIONS)
+	-cd $(INCDIR); $(RM) $(RM_OPTIONS) $(TIDY_OPTIONS);
 
 #
 # $Log: not supported by cvs2svn $
+# Revision 0.1  1999/06/24 11:05:01  dev
+# initial revision
+#
 #
 # DO NOT DELETE
 
