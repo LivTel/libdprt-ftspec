@@ -1,11 +1,11 @@
 /* dprt.c
 ** Entry point for Data Pipeline Reduction Routines
-** $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/dprt.c,v 0.9 2004-01-15 16:04:13 cjm Exp $
+** $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/dprt.c,v 0.10 2004-02-06 17:08:25 cjm Exp $
 */
 /**
  * dprt.c is the entry point for the Data Reduction Pipeline (Real Time).
  * @author Chris Mottram, LJMU
- * @version $Revision: 0.9 $
+ * @version $Revision: 0.10 $
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,7 +37,7 @@
 /**
  * Revision Control System identifier.
  */
-static char rcsid[] = "$Id: dprt.c,v 0.9 2004-01-15 16:04:13 cjm Exp $";
+static char rcsid[] = "$Id: dprt.c,v 0.10 2004-02-06 17:08:25 cjm Exp $";
 /**
  * Internal Error Number - set this to a unique value for each location an error occurs.
  */
@@ -132,6 +132,7 @@ int DpRt_Initialise(void)
 {
 	int retval,fake;
 
+	DpRt_Error_Number = 0;
 	if(DpRt_Data.DpRt_Get_Property_Function_Pointer == NULL)
 		DpRt_Set_Property_Function_Pointer(DpRt_Get_Property_From_C_File);
 	if(DpRt_Data.DpRt_Get_Property_Integer_Function_Pointer == NULL)
@@ -168,6 +169,7 @@ int DpRt_Shutdown(void)
 {
 	int retval,fake;
 
+	DpRt_Error_Number = 0;
 /* are we doing a fake reduction or a real one. */
 	if(!DpRt_Get_Property_Boolean("dprt.fake",&fake))
 		return FALSE;
@@ -211,6 +213,7 @@ int DpRt_Calibrate_Reduce(char *input_filename,char **output_filename,double *me
 	float l1mean,l1seeing,l1xpix,l1ypix,l1counts,l1photom,l1skybright;
 	int l1sat,run_mode,full_reduction;
 
+	DpRt_Error_Number = 0;
 /* are we doing a fake reduction or a real one. */
 	if(!DpRt_Get_Property_Boolean("dprt.fake",&fake))
 		return FALSE;
@@ -283,6 +286,7 @@ int DpRt_Expose_Reduce(char *input_filename,char **output_filename,double *seein
 	float l1mean,l1seeing,l1xpix,l1ypix,l1counts,l1photom,l1skybright;
 	int l1sat,run_mode,full_reduction;
 
+	DpRt_Error_Number = 0;
 /* are we doing a fake reduction or a real one. */
 	if(!DpRt_Get_Property_Boolean("dprt.fake",&fake))
 		return FALSE;
@@ -346,6 +350,7 @@ int DpRt_Make_Master_Bias(char *directory_name)
 	float l1mean,l1seeing,l1xpix,l1ypix,l1counts,l1photom,l1skybright;
 	int l1sat;
 
+	DpRt_Error_Number = 0;
 /* are we doing a fake reduction or a real one. */
 	if(!DpRt_Get_Property_Boolean("dprt.fake",&fake))
 		return FALSE;
@@ -399,6 +404,7 @@ int DpRt_Make_Master_Flat(char *directory_name)
 	float l1mean,l1seeing,l1xpix,l1ypix,l1counts,l1photom,l1skybright;
 	int l1sat;
 
+	DpRt_Error_Number = 0;
 /* are we doing a fake reduction or a real one. */
 	if(!DpRt_Get_Property_Boolean("dprt.fake",&fake))
 		return FALSE;
@@ -462,6 +468,7 @@ void DpRt_Set_Abort(int value)
  */
 int DpRt_Get_Property(char *keyword,char **value_string)
 {
+	DpRt_Error_Number = 0;
 	if(keyword == NULL)
 	{
 		DpRt_Error_Number = 5;
@@ -496,6 +503,7 @@ int DpRt_Get_Property(char *keyword,char **value_string)
  */
 int DpRt_Get_Property_Integer(char *keyword,int *value)
 {
+	DpRt_Error_Number = 0;
 	if(keyword == NULL)
 	{
 		DpRt_Error_Number = 8;
@@ -530,6 +538,7 @@ int DpRt_Get_Property_Integer(char *keyword,int *value)
  */
 int DpRt_Get_Property_Double(char *keyword,double *value)
 {
+	DpRt_Error_Number = 0;
 	if(keyword == NULL)
 	{
 		DpRt_Error_Number = 11;
@@ -564,6 +573,7 @@ int DpRt_Get_Property_Double(char *keyword,double *value)
  */
 int DpRt_Get_Property_Boolean(char *keyword,int *value)
 {
+	DpRt_Error_Number = 0;
 	if(keyword == NULL)
 	{
 		DpRt_Error_Number = 14;
@@ -1234,6 +1244,9 @@ static int DpRt_Get_Property_Boolean_From_C_File(char *keyword,int *value)
 
 /*
 ** $Log: not supported by cvs2svn $
+** Revision 0.9  2004/01/15 16:04:13  cjm
+** No change.
+**
 ** Revision 0.8  2002/11/26 17:38:13  cjm
 ** Integrated librjs_dprt.
 **
