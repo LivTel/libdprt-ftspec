@@ -1,4 +1,4 @@
-# $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/Makefile,v 0.2 1999-06-25 09:50:59 dev Exp $
+# $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/Makefile,v 0.3 1999-07-12 16:05:00 cjm Exp $
 
 include			../../Makefile.common
 
@@ -26,7 +26,7 @@ libdprt.a: $(OBJS)
 	ar rcv $@ $?
 
 $(DOCS) : $(OBJS)
-	$(CDOC) -d $(DOCSDIR) -h $(INCDIR) $(DOCFLAGS) $(SRCS)
+	-$(CDOC) -d $(DOCSDIR) -h $(INCDIR) $(DOCFLAGS) $(SRCS)
 
 checkout:
 	$(CO) $(CO_OPTIONS) $(SRCS)
@@ -54,6 +54,10 @@ tidy:
 
 #
 # $Log: not supported by cvs2svn $
+# Revision 0.2  1999/06/25 09:50:59  dev
+# changed tidy and checkin rules so that errors are ignored
+# (e.g. files already deleted/files already checked in)
+#
 # Revision 0.1  1999/06/24 11:05:01  dev
 # initial revision
 #
