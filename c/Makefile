@@ -1,21 +1,22 @@
-# $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/Makefile,v 0.11 2002-11-26 18:13:11 cjm Exp $
+# $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/Makefile,v 0.12 2004-01-30 16:44:45 cjm Exp $
 
 include	../../Makefile.common
 include	../Makefile.common
 
 INCDIR 		= $(LIBDPRT_SRC_HOME)/include
 RJSINCDIR	= $(LIBDPRT_SRC_HOME)/rjs
+OBJECTINCDIR	= $(LIBDPRT_SRC_HOME)/object/include
 DOCSDIR 	= $(LIBDPRT_DOC_HOME)/cdocs
 BINDIR		= $(LIBDPRT_BIN_HOME)/c/$(HOSTTYPE)
-CFLAGS 		= -g $(CCHECKFLAG) -I$(INCDIR) -I$(CFITSIOINCDIR) -I$(JNIINCDIR) -I$(JNIMDINCDIR) -I $(RJSINCDIR) \
-		-L$(LT_LIB_HOME)
+CFLAGS 		= -g $(CCHECKFLAG) -I$(INCDIR) -I$(CFITSIOINCDIR) -I$(JNIINCDIR) -I$(JNIMDINCDIR) -I$(RJSINCDIR) \
+		-I$(OBJECTINCDIR) -L$(LT_LIB_HOME)
 LINTFLAGS 	= -I$(INCDIR) -I$(JNIINCDIR) -I$(JNIMDINCDIR)
 DOCFLAGS 	= -static
 SRCS 		= dprt.c DpRtLibrary.c
 HEADERS		= $(SRCS:%.c=%.h)
 OBJS		= $(SRCS:%.c=$(BINDIR)/%.o)
 DOCS 		= $(SRCS:%.c=$(DOCSDIR)/%.html)
-LIBS		= -lcfitsio -lrjs_dprt
+LIBS		= -lcfitsio -lrjs_dprt -ldprt_object
 
 top: shared docs
 
@@ -73,6 +74,9 @@ backup: tidy
 
 #
 # $Log: not supported by cvs2svn $
+# Revision 0.11  2002/11/26 18:13:11  cjm
+# Addd lib rjs_dprt linkage.
+#
 # Revision 0.10  2002/05/20 11:34:45  cjm
 # Moved object files to binary tree.
 #
