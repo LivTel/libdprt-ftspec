@@ -1,11 +1,11 @@
 /* dprt.c
 ** Entry point for Data Pipeline Reduction Routines
-** $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/dprt.c,v 0.2 1999-06-30 15:07:47 dev Exp $
+** $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/dprt.c,v 0.3 1999-08-24 16:04:30 cjm Exp $
 */
 /**
  * dprt.c is the entry point for the Data Reduction Pipeline (Real Time).
  * @author Lee Howells, LJMU
- * @version $Revision: 0.2 $
+ * @version $Revision: 0.3 $
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,7 +18,7 @@
 /**
  * Revision Control System identifier.
  */
-static char rcsid[] = "$Id: dprt.c,v 0.2 1999-06-30 15:07:47 dev Exp $";
+static char rcsid[] = "$Id: dprt.c,v 0.3 1999-08-24 16:04:30 cjm Exp $";
 /**
  * Internal Error Number - set this to a unique value for each location an error occurs.
  */
@@ -40,7 +40,6 @@ static char DpRt_Error_String[DPRT_ERROR_STRING_LENGTH] = "";
  * @see #DpRt_Error_Number
  * @see #DpRt_Error_String
  * @see #DpRt_Abort
-
  */
 static volatile int DpRt_Abort = FALSE;/* diddly volatile as thread dependant */
 
@@ -242,6 +241,10 @@ static int DpRt_Get_Abort(void)
 
 /*
 ** $Log: not supported by cvs2svn $
+** Revision 0.2  1999/06/30 15:07:47  dev
+** changes to return when error occurs in reduction code
+** set return paramaters to 0/NULL.
+**
 ** Revision 0.1  1999/06/24 11:06:42  dev
 ** initial revision
 **
