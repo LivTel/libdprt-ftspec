@@ -1,11 +1,11 @@
-/* dprt.c -*- mode: Fundamental;-*-
+/* dprt.c
 ** Entry point for Data Pipeline Reduction Routines
-** $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/dprt.c,v 0.7 2002-05-20 11:02:09 cjm Exp $
+** $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/dprt.c,v 0.8 2002-11-26 17:38:13 cjm Exp $
 */
 /**
  * dprt.c is the entry point for the Data Reduction Pipeline (Real Time).
- * @author Lee Howells, LJMU
- * @version $Revision: 0.7 $
+ * @author Chris Mottram, LJMU
+ * @version $Revision: 0.8 $
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,6 +13,7 @@
 #include <math.h>
 #include "fitsio.h"
 #include "dprt.h"
+#include "rjs_dprt.h"
 
 /* ------------------------------------------------------- */
 /* hash definitions */
@@ -36,7 +37,7 @@
 /**
  * Revision Control System identifier.
  */
-static char rcsid[] = "$Id: dprt.c,v 0.7 2002-05-20 11:02:09 cjm Exp $";
+static char rcsid[] = "$Id: dprt.c,v 0.8 2002-11-26 17:38:13 cjm Exp $";
 /**
  * Internal Error Number - set this to a unique value for each location an error occurs.
  */
@@ -99,6 +100,9 @@ static struct DpRt_Struct DpRt_Data =
 /* ------------------------------------------------------- */
 /* internal function declarations */
 /* ------------------------------------------------------- */
+static int Calibrate_Reduce_Fake(char *input_filename,char **output_filename,double *mean_counts,double *peak_counts);
+static int Expose_Reduce_Fake(char *input_filename,char **output_filename,double *seeing,double *counts,
+	double *x_pix,double *y_pix,double *photometricity,double *sky_brightness,int *saturated);
 static int DpRt_Get_Abort(void);
 static int DpRt_Get_Property_From_C_File(char *keyword,char **value_string);
 static int DpRt_Get_Property_Integer_From_C_File(char *keyword,int *value);
@@ -122,13 +126,65 @@ static int DpRt_Get_Property_Boolean_From_C_File(char *keyword,int *value);
  * @see #DpRt_Get_Property_Integer_From_C_File
  * @see #DpRt_Get_Property_Double_From_C_File
  * @see #DpRt_Get_Property_Boolean_From_C_File
+ * @see ../rjs/rjs_dprt.html#dprt_init
  */
-void DpRt_Initialise(void)
+int DpRt_Initialise(void)
 {
-	DpRt_Set_Property_Function_Pointer(DpRt_Get_Property_From_C_File);
-	DpRt_Set_Property_Integer_Function_Pointer(DpRt_Get_Property_Integer_From_C_File);
-	DpRt_Set_Property_Double_Function_Pointer(DpRt_Get_Property_Double_From_C_File);
-	DpRt_Set_Property_Boolean_Function_Pointer(DpRt_Get_Property_Boolean_From_C_File);
+	int retval,fake;
+
+	if(DpRt_Data.DpRt_Get_Property_Function_Pointer == NULL)
+		DpRt_Set_Property_Function_Pointer(DpRt_Get_Property_From_C_File);
+	if(DpRt_Data.DpRt_Get_Property_Integer_Function_Pointer == NULL)
+		DpRt_Set_Property_Integer_Function_Pointer(DpRt_Get_Property_Integer_From_C_File);
+	if(DpRt_Data.DpRt_Get_Property_Double_Function_Pointer == NULL)
+		DpRt_Set_Property_Double_Function_Pointer(DpRt_Get_Property_Double_From_C_File);
+	if(DpRt_Data.DpRt_Get_Property_Boolean_Function_Pointer == NULL)
+		DpRt_Set_Property_Boolean_Function_Pointer(DpRt_Get_Property_Boolean_From_C_File);
+/* are we doing a fake reduction or a real one. */
+	if(!DpRt_Get_Property_Boolean("dprt.fake",&fake))
+		return FALSE;
+	fprintf(stdout,"DpRt_Initialise:Fake:%d\n",fake);
+	if(fake == FALSE)
+	{
+		/* call real initialisation routine */
+		fprintf(stdout,"Calling DpRt initialisation routine (dprt_init).\n");
+		retval = dprt_init();
+		fprintf(stdout,"DpRt initialisation routine (dprt_init) returned %d.\n",retval);
+		if(retval == TRUE)
+		{
+			DpRt_Error_Number = dprt_err_int;
+			strcpy(DpRt_Error_String,dprt_err_str);
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+
+/**
+ * This finction should be called when the library/DpRt is about to be shutdown.
+ * @see ../rjs/rjs_dprt.html#dprt_init
+ */
+int DpRt_Shutdown(void)
+{
+	int retval,fake;
+
+/* are we doing a fake reduction or a real one. */
+	if(!DpRt_Get_Property_Boolean("dprt.fake",&fake))
+		return FALSE;
+	fprintf(stdout,"DpRt_Shutdown:Fake:%d\n",fake);
+	if(fake == FALSE)
+	{
+		fprintf(stdout,"Calling DpRt shutdown routine (dprt_close_down).\n");
+		retval = dprt_close_down();
+		fprintf(stdout,"DpRt shutdown routine (dprt_lose_down) returned %d.\n",retval);
+		if(retval != TRUE)
+		{
+			DpRt_Error_Number = dprt_err_int;
+			strcpy(DpRt_Error_String,dprt_err_str);
+			return FALSE;
+		}
+	}
+	return TRUE;
 }
 
 /**
@@ -146,185 +202,51 @@ void DpRt_Initialise(void)
  *       succeeded and FALSE if they fail.
  * @see DpRtLibrary.html
  * @see #DpRt_Get_Abort
+ * @see #Calibrate_Reduce_Fake
+ * @see ../rjs/rjs_dprt.html#dprt_process
  */
 int DpRt_Calibrate_Reduce(char *input_filename,char **output_filename,double *mean_counts,double *peak_counts)
 {
-	fitsfile *fp = NULL;
-	int retval=0,status=0,integer_value,naxis_one,naxis_two,i,j,value;
-	unsigned short *data = NULL;
-	char *test_string = NULL;
-	int test_integer = 0;
-	double test_double = 0.0;
-	int test_boolean = FALSE;
-	double counts_count = 0.0;
-	int max_count = 0;
+	int fake,retval;
+	float l1mean,l1seeing,l1xpix,l1ypix,l1counts,l1photom,l1skybright;
+	int l1sat,run_mode,full_reduction;
 
-/* set the error stuff to no error*/
-	DpRt_Error_Number = 0;
-	strcpy(DpRt_Error_String,"");
-/* setup return values */
-	(*mean_counts) = 0.0;
-	(*peak_counts) = 0.0;
-
-/* unset any previous aborts - ready to start processing */
-	DpRt_Set_Abort(FALSE);
-
-/* do processing  here */
-	fprintf(stderr,"DpRt_Calibrate_Reduce(%s).\n",input_filename);
-
-/* open file */
-	retval = fits_open_file(&fp,input_filename,READONLY,&status);
-	if(retval)
-	{
-		fits_report_error(stderr,status);
-		DpRt_Error_Number = 23;
-		sprintf(DpRt_Error_String,"DpRt_Calibrate_Reduce(%s): Open failed.\n",input_filename);
+/* are we doing a fake reduction or a real one. */
+	if(!DpRt_Get_Property_Boolean("dprt.fake",&fake))
 		return FALSE;
-	}
-/* check bitpix */
-	retval = fits_read_key(fp,TINT,"BITPIX",&integer_value,NULL,&status);
-	if(retval)
-	{
-		fits_report_error(stderr,status);
-		DpRt_Error_Number = 24;
-		sprintf(DpRt_Error_String,"DpRt_Calibrate_Reduce(%s): Failed to get BITPIX.\n",input_filename);
+	fprintf(stdout,"DpRt_Calibrate_Reduce:Fake:%d\n",fake);
+	if(!DpRt_Get_Property_Boolean("dprt.full_reduction",&full_reduction))
 		return FALSE;
-	}
-	if(integer_value != FITS_GET_DATA_BITPIX)
+	fprintf(stdout,"DpRt_Calibrate_Reduce:Full Reduction Flag:%d\n",full_reduction);
+	if(fake)
 	{
-		DpRt_Error_Number = 25;
-		sprintf(DpRt_Error_String,"DpRt_Calibrate_Reduce(%s): Wrong BITPIX value(%d).\n",
-			input_filename,integer_value);
-		return FALSE;
+		return Calibrate_Reduce_Fake(input_filename,output_filename,mean_counts,peak_counts);
 	}
-/* check naxis */
-	retval = fits_read_key(fp,TINT,"NAXIS",&integer_value,NULL,&status);
-	if(retval)
+	else
 	{
-		fits_report_error(stderr,status);
-		DpRt_Error_Number = 26;
-		sprintf(DpRt_Error_String,"DpRt_Calibrate_Reduce(%s): Failed to get NAXIS.\n",input_filename);
-		return FALSE;
-	}
-	if(integer_value != FITS_GET_DATA_NAXIS)
-	{
-		DpRt_Error_Number = 27;
-		sprintf(DpRt_Error_String,"DpRt_Calibrate_Reduce(%s): Wrong NAXIS value(%d).\n",
-			input_filename,integer_value);
-		return FALSE;
-	}
-/* get naxis1,naxis2 */
-	retval = fits_read_key(fp,TINT,"NAXIS1",&naxis_one,NULL,&status);
-	if(retval)
-	{
-		fits_report_error(stderr,status);
-		DpRt_Error_Number = 28;
-		sprintf(DpRt_Error_String,"DpRt_Calibrate_Reduce(%s): Failed to get NAXIS1.\n",input_filename);
-		return FALSE;
-	}
-	retval = fits_read_key(fp,TINT,"NAXIS2",&naxis_two,NULL,&status);
-	if(retval)
-	{
-		fits_report_error(stderr,status);
-		DpRt_Error_Number = 29;
-		sprintf(DpRt_Error_String,"DpRt_Calibrate_Reduce(%s): Failed to get NAXIS2.\n",input_filename);
-		return FALSE;
-	}
-/* allocate data */
-	data = (unsigned short *)malloc(naxis_one*naxis_two*sizeof(unsigned short));
-	if(data == NULL)
-	{
-		DpRt_Error_Number = 30;
-		sprintf(DpRt_Error_String,"DpRt_Calibrate_Reduce(%s): Failed to allocate memory (%d,%d,%d).\n",
-			input_filename,naxis_one,naxis_two,naxis_one*naxis_two*sizeof(short));
-		return FALSE;
-	}
-/* read the data */
-	retval = fits_read_img(fp,TUSHORT,1,naxis_one*naxis_two,NULL,data,NULL,&status);
-	if(retval)
-	{
-		fits_report_error(stderr,status);
-		DpRt_Error_Number = 31;
-		sprintf(DpRt_Error_String,"DpRt_Calibrate_Reduce(%s): Failed to read image(%d,%d).\n",
-			input_filename,naxis_one,naxis_two);
-		if(data != NULL)
-			free(data);
-		return FALSE;
-	}
-/* close file */
-	retval = fits_close_file(fp,&status);
-	if(retval)
-	{
-		fits_report_error(stderr,status);
-		DpRt_Error_Number = 32;
-		sprintf(DpRt_Error_String,"DpRt_Calibrate_Reduce(%s): Failed to close file.\n",input_filename);
-		if(data != NULL)
-			free(data);
-		return FALSE;
-	}
-/* during processing regularily check the abort flag as below */
-	if(DpRt_Get_Abort())
-	{
-		/* tidy up anything that needs tidying as a result of this routine here */
-		(*mean_counts) = 0.0;
-		(*peak_counts) = 0.0;
-		(*output_filename) = NULL;
-		DpRt_Error_Number = 1;
-		sprintf(DpRt_Error_String,"DpRt_Calibrate_Reduce(%s): Operation Aborted.\n",input_filename);
-		if(data != NULL)
-			free(data);
-		return FALSE;
-	}
-
-/* setup return values */
-	(*mean_counts) = 0.0;
-	(*peak_counts) = 0.0;
-	counts_count = 0.0;
-	max_count = 0;
-	for(j=0;j<naxis_two;j++)
-	{
-		for(i=0;i<naxis_one;i++)
+		if(full_reduction)
+			run_mode = FULL_REDUCTION;
+		else
+			run_mode = QUICK_REDUCTION;
+		fprintf(stdout,"DpRt_Calibrate_Reduce:Calling Calibration reduction routine (dprt_process(%d)).\n",
+			run_mode);
+		retval = dprt_process(input_filename,run_mode,&l1mean,&l1seeing, 
+			&l1xpix,&l1ypix,&l1counts,&l1sat,&l1photom,&l1skybright);
+		fprintf(stdout,"DpRt_Calibrate_Reduce:Calibration reduction routine (dprt_process) returned %d.\n",
+			retval);
+		if(retval == TRUE) /* an error has occured */
 		{
-			value = (int)(data[(naxis_one*j)+i]);
-			counts_count += (double)value;
-			if(value>max_count)
-				max_count = value;
+			DpRt_Error_Number = dprt_err_int;
+			strcpy(DpRt_Error_String,dprt_err_str);
+			(*output_filename) = NULL;
+			(*mean_counts) = 0;
+			(*peak_counts) = 0;
+			return FALSE;
 		}
+		(*output_filename) = NULL; /* diddly fix */
+		(*mean_counts) = (double)l1mean;
+		(*peak_counts) = (double)l1counts;
 	}
-	if(data != NULL)
-		free(data);
-	(*mean_counts) = (float)(((double)counts_count)/((double)(naxis_one*naxis_two)));
-	(*peak_counts) = (float)max_count;
-/* test property retrieval code */
-	if(!DpRt_Get_Property("dprt.test.string",&test_string))
-		return FALSE;
-	fprintf(stdout,"Test String:%s\n",test_string);
-	if(!DpRt_Get_Property_Integer("dprt.test.integer",&test_integer))
-		return FALSE;
-	fprintf(stdout,"Test Integer:%d\n",test_integer);
-	if(!DpRt_Get_Property_Double("dprt.test.double",&test_double))
-		return FALSE;
-	fprintf(stdout,"Test Double:%.10f\n",test_double);
-	if(!DpRt_Get_Property_Boolean("dprt.test.boolean",&test_boolean))
-		return FALSE;
-	fprintf(stdout,"Test Boolean:%d\n",test_boolean);
-
-/* setup filename - allocate space for string */
-	(*output_filename) = (char*)malloc((strlen(input_filename)+1)*sizeof(char));
-	/* if malloc fails it returns NULL - this is an error */
-	if((*output_filename) == NULL)
-	{
-		/* tidy up anything that needs tidying as a result of this routine here */
-		(*mean_counts) = 0.0;
-		(*peak_counts) = 0.0;
-		(*output_filename) = NULL;
-		DpRt_Error_Number = 2;
-		sprintf(DpRt_Error_String,"DpRt_Reduce(%s): Memory Allocation Error.\n",input_filename);
-		return FALSE;
-	}
-/* set the filename to something more sensible here */
-	strcpy((*output_filename),input_filename);
-
 	return TRUE;
 }
 
@@ -352,204 +274,167 @@ int DpRt_Calibrate_Reduce(char *input_filename,char **output_filename,double *me
  *       succeeded and FALSE if they fail.
  * @see DpRtLibrary.html
  * @see #DpRt_Get_Abort
+ * @see #Expose_Reduce_Fake
+ * @see ../rjs/rjs_dprt.html#dprt_process
  */
 int DpRt_Expose_Reduce(char *input_filename,char **output_filename,double *seeing,double *counts,double *x_pix,
 		       double *y_pix,double *photometricity,double *sky_brightness,int *saturated)
 {
-	fitsfile *fp = NULL;
-	int retval=0,status=0,integer_value,naxis_one,naxis_two,i,j,value;
-	unsigned short *data = NULL;
-	double telfocus,best_focus,fwhm_per_mm,atmospheric_seeing,atmospheric_variation,error;
-	char *ch = NULL;
+	int fake,retval;
+	float l1mean,l1seeing,l1xpix,l1ypix,l1counts,l1photom,l1skybright;
+	int l1sat,run_mode,full_reduction;
 
-	/* set the error stuff to no error*/
-	DpRt_Error_Number = 0;
-	strcpy(DpRt_Error_String,"");
-
-/* unset any previous aborts - ready to start processing */
-	DpRt_Set_Abort(FALSE);
-/* do processing  here */
-	fprintf(stderr,"DpRt_Expose_Reduce(%s).\n",input_filename);
-/* setup return values */
-	(*output_filename) = NULL;
-	(*seeing) = 0.0;
-	(*counts) = 0.0;
-	(*x_pix) = 0.0;
-	(*y_pix) = 0.0;
-	(*photometricity) = 0.0;
-	(*sky_brightness) = 0.0;
-	(*saturated) = FALSE;
-/* get parameters from config */
-	if(!DpRt_Get_Property_Double("dprt.telfocus.best_focus",&best_focus))
+/* are we doing a fake reduction or a real one. */
+	if(!DpRt_Get_Property_Boolean("dprt.fake",&fake))
 		return FALSE;
-	if(!DpRt_Get_Property_Double("dprt.telfocus.fwhm_per_mm",&fwhm_per_mm))
+	fprintf(stdout,"DpRt_Expose_Reduce:Fake:%d\n",fake);
+	if(!DpRt_Get_Property_Boolean("dprt.full_reduction",&full_reduction))
 		return FALSE;
-	if(!DpRt_Get_Property_Double("dprt.telfocus.atmospheric_seeing",&atmospheric_seeing))
-		return FALSE;
-	if(!DpRt_Get_Property_Double("dprt.telfocus.atmospheric_variation",&atmospheric_variation))
-		return FALSE;
-/* open file */
-	retval = fits_open_file(&fp,input_filename,READONLY,&status);
-	if(retval)
+	fprintf(stdout,"DpRt_Calibrate_Reduce:Full Reduction Flag:%d\n",full_reduction);
+	if(fake)
 	{
-		fits_report_error(stderr,status);
-		DpRt_Error_Number = 33;
-		sprintf(DpRt_Error_String,"DpRt_Expose_Reduce(%s): Open failed.\n",input_filename);
-		return FALSE;
-	}
-/* check bitpix */
-	retval = fits_read_key(fp,TINT,"BITPIX",&integer_value,NULL,&status);
-	if(retval)
-	{
-		fits_report_error(stderr,status);
-		DpRt_Error_Number = 34;
-		sprintf(DpRt_Error_String,"DpRt_Expose_Reduce(%s): Failed to get BITPIX.\n",input_filename);
-		return FALSE;
-	}
-	if(integer_value != FITS_GET_DATA_BITPIX)
-	{
-		DpRt_Error_Number = 35;
-		sprintf(DpRt_Error_String,"DpRt_Expose_Reduce(%s): Wrong BITPIX value(%d).\n",
-			input_filename,integer_value);
-		return FALSE;
-	}
-/* check naxis */
-	retval = fits_read_key(fp,TINT,"NAXIS",&integer_value,NULL,&status);
-	if(retval)
-	{
-		fits_report_error(stderr,status);
-		DpRt_Error_Number = 36;
-		sprintf(DpRt_Error_String,"DpRt_Expose_Reduce(%s): Failed to get NAXIS.\n",input_filename);
-		return FALSE;
-	}
-	if(integer_value != FITS_GET_DATA_NAXIS)
-	{
-		DpRt_Error_Number = 37;
-		sprintf(DpRt_Error_String,"DpRt_Expose_Reduce(%s): Wrong NAXIS value(%d).\n",
-			input_filename,integer_value);
-		return FALSE;
-	}
-/* get naxis1,naxis2 */
-	retval = fits_read_key(fp,TINT,"NAXIS1",&naxis_one,NULL,&status);
-	if(retval)
-	{
-		fits_report_error(stderr,status);
-		DpRt_Error_Number = 38;
-		sprintf(DpRt_Error_String,"DpRt_Expose_Reduce(%s): Failed to get NAXIS1.\n",input_filename);
-		return FALSE;
-	}
-	retval = fits_read_key(fp,TINT,"NAXIS2",&naxis_two,NULL,&status);
-	if(retval)
-	{
-		fits_report_error(stderr,status);
-		DpRt_Error_Number = 39;
-		sprintf(DpRt_Error_String,"DpRt_Expose_Reduce(%s): Failed to get NAXIS2.\n",input_filename);
-		return FALSE;
-	}
-/* get telescope focus */
-	retval = fits_read_key(fp,TDOUBLE,"TELFOCUS",&telfocus,NULL,&status);
-	if(retval)
-	{
-		fits_report_error(stderr,status);
-		DpRt_Error_Number = 40;
-		sprintf(DpRt_Error_String,"DpRt_Expose_Reduce(%s): Failed to get TELFOCUS.\n",input_filename);
-		return FALSE;
-	}
-/* allocate data */
-	data = (unsigned short *)malloc(naxis_one*naxis_two*sizeof(unsigned short));
-	if(data == NULL)
-	{
-		DpRt_Error_Number = 41;
-		sprintf(DpRt_Error_String,"DpRt_Expose_Reduce(%s): Failed to allocate memory (%d,%d,%d).\n",
-			input_filename,naxis_one,naxis_two,naxis_one*naxis_two*sizeof(short));
-		return FALSE;
-	}
-/* read the data */
-	retval = fits_read_img(fp,TUSHORT,1,naxis_one*naxis_two,NULL,data,NULL,&status);
-	if(retval)
-	{
-		fits_report_error(stderr,status);
-		DpRt_Error_Number = 42;
-		sprintf(DpRt_Error_String,"DpRt_Expose_Reduce(%s): Failed to read image(%d,%d).\n",
-			input_filename,naxis_one,naxis_two);
-		if(data != NULL)
-			free(data);
-		return FALSE;
-	}
-/* close file */
-	retval = fits_close_file(fp,&status);
-	if(retval)
-	{
-		fits_report_error(stderr,status);
-		DpRt_Error_Number = 43;
-		sprintf(DpRt_Error_String,"DpRt_Expose_Reduce(%s): Failed to close file.\n",input_filename);
-		if(data != NULL)
-			free(data);
-		return FALSE;
-	}
-/* during processing regularily check the abort flag as below */
-	if(DpRt_Get_Abort())
-	{
-		/* tidy up anything that needs tidying as a result of this routine here */
-		(*output_filename) = NULL;
-		DpRt_Error_Number = 44;
-		sprintf(DpRt_Error_String,"DpRt_Expose_Reduce(%s): Operation Aborted.\n",input_filename);
-		if(data != NULL)
-			free(data);
-		return FALSE;
-	}
-/* get counts,x_pix,y_pix */
-	for(j=0;j<naxis_two;j++)
-	{
-		for(i=0;i<naxis_one;i++)
-		{
-			value = (int)(data[(naxis_one*j)+i]);
-			if(value> (*counts))
-			{
-				(*counts) = value;
-				(*x_pix) = i;
-				(*y_pix) = j;
-			}
-		}
-	}
-	if(data != NULL)
-		free(data);
-/* during processing regularily check the abort flag as below */
-	if(DpRt_Get_Abort())
-	{
-		/* tidy up anything that needs tidying as a result of this routine here */
-		(*output_filename) = NULL;
-		DpRt_Error_Number = 3;
-		sprintf(DpRt_Error_String,"DpRt_Expose_Reduce(%s): Operation Aborted.\n",input_filename);
-		return FALSE;
-	}
-
-	/* setup return values */
-	ch = strstr(input_filename,"telFocus");
-	if(ch != NULL)
-	{
-		error = (atmospheric_variation*((double)rand()))/((double)RAND_MAX);
-		(*seeing) = (pow((telfocus-best_focus),2.0)*(fwhm_per_mm-atmospheric_seeing))+
-				atmospheric_seeing+error;
-		fprintf(stderr,"telfocus %.2f:seeing set to %.2f.\n",telfocus,(*seeing));
+		return Expose_Reduce_Fake(input_filename,output_filename,seeing,counts,x_pix,y_pix,
+			photometricity,sky_brightness,saturated);
 	}
 	else
 	{
-		(*seeing) = ((float)(rand()%50))/10.0;
+		if(full_reduction)
+			run_mode = FULL_REDUCTION;
+		else
+			run_mode = QUICK_REDUCTION;
+		fprintf(stdout,"DpRt_Expose_Reduce:Calling Exposure reduction routine (dprt_process(%d)).\n",run_mode);
+		retval = dprt_process(input_filename,run_mode,&l1mean,&l1seeing, 
+			&l1xpix,&l1ypix,&l1counts,&l1sat,&l1photom,&l1skybright);
+		fprintf(stdout,"DpRt_Expose_Reduce:Exposure reduction routine (dprt_process) returned %d.\n",retval);
+		if(retval == TRUE)
+		{
+			DpRt_Error_Number = dprt_err_int;
+			strcpy(DpRt_Error_String,dprt_err_str);
+			(*output_filename) = NULL;
+			(*seeing) = 0.0;
+			(*counts) = 0.0;
+			(*x_pix) = 0.0;
+			(*y_pix) = 0.0;
+			(*photometricity) = 0.0;
+			(*sky_brightness) = 0.0;
+			(*saturated) = FALSE;
+			return FALSE;
+		}
+		(*output_filename) = NULL; /* diddly fix */
+		(*seeing) = (double)l1seeing;
+		(*counts) = (double)l1counts;
+		(*x_pix) = (double)l1xpix;
+		(*y_pix) = (double)l1ypix;
+		(*photometricity) = (double)l1photom;
+		(*sky_brightness) = (double)l1skybright;
+		(*saturated) = (int)l1sat;
 	}
-/* setup filename - allocate space for string */
-	(*output_filename) = (char*)malloc((strlen(input_filename)+1)*sizeof(char));
-/* if malloc fails it returns NULL - this is an error */
-	if((*output_filename) == NULL)
-	{
-		/* tidy up anything that needs tidying as a result of this routine here */
-		(*output_filename) = NULL;
-		DpRt_Error_Number = 4;
-		sprintf(DpRt_Error_String,"DpRt_Expose_Reduce(%s): Memory Allocation Error.\n",input_filename);
+	return TRUE;
+}
+
+/**
+ * This routine creates a master bias frame for each binning factor, created from biases in the specified
+ * directory
+ * @param directory_name A directory containing the  FITS filenames to be processed.
+ * @return The routine should return whether it succeeded or not. TRUE should be returned if the routine
+ *       succeeded and FALSE if they fail.
+ * @see #DpRt_Get_Property_Boolean
+ * @see ../rjs/rjs_dprt.html#dprt_process
+ * @see ../rjs/rjs_dprt.html#MAKE_BIAS
+ */
+int DpRt_Make_Master_Bias(char *directory_name)
+{
+	int fake,retval,make_master_bias;
+	float l1mean,l1seeing,l1xpix,l1ypix,l1counts,l1photom,l1skybright;
+	int l1sat;
+
+/* are we doing a fake reduction or a real one. */
+	if(!DpRt_Get_Property_Boolean("dprt.fake",&fake))
 		return FALSE;
+	fprintf(stdout,"DpRt_Make_Master_Bias:Fake:%d\n",fake);
+	if(!DpRt_Get_Property_Boolean("dprt.make_master_bias",&make_master_bias))
+		return FALSE;
+	fprintf(stdout,"DpRt_Make_Master_Bias:Make Master Bias Flag:%d\n",make_master_bias);
+	if(fake)
+	{
+		/* do nothing to fake this */
+		return TRUE;
 	}
-/* set the filename to something more sensible here */
-	strcpy((*output_filename),input_filename);
+	else
+	{
+		if(make_master_bias)
+		{
+			fprintf(stdout,"DpRt_Make_Master_Bias:Calling Make Master Bias routine (dprt_process).\n");
+			retval = dprt_process(directory_name,MAKE_BIAS,&l1mean,&l1seeing, 
+					      &l1xpix,&l1ypix,&l1counts,&l1sat,&l1photom,&l1skybright);
+			fprintf(stdout,"DpRt_Make_Master_Bias:Make Master Bias routine (dprt_process) returned %d.\n",
+				retval);
+			if(retval == TRUE)
+			{
+				DpRt_Error_Number = dprt_err_int;
+				strcpy(DpRt_Error_String,dprt_err_str);
+				return FALSE;
+			}
+		}
+		else
+		{
+			fprintf(stdout,"DpRt_Make_Master_Bias:Make Master Bias Flag was FALSE:"
+				"Not making master bias.\n");
+		}
+	}
+	return TRUE;
+}
+
+/**
+ * This routine creates a master flat frame for each binning factor, created from flats in the specified
+ * directory.
+ * @param directory_name A directory containing the  FITS filenames to be processed.
+ * @return The routine should return whether it succeeded or not. TRUE should be returned if the routine
+ *       succeeded and FALSE if they fail.
+ * @see #DpRt_Get_Property_Boolean
+ * @see ../rjs/rjs_dprt.html#dprt_process
+ * @see ../rjs/rjs_dprt.html#MAKE_FLAT
+ */
+int DpRt_Make_Master_Flat(char *directory_name)
+{
+	int fake,retval,make_master_flat;
+	float l1mean,l1seeing,l1xpix,l1ypix,l1counts,l1photom,l1skybright;
+	int l1sat;
+
+/* are we doing a fake reduction or a real one. */
+	if(!DpRt_Get_Property_Boolean("dprt.fake",&fake))
+		return FALSE;
+	fprintf(stdout,"DpRt_Make_Master_Flat:Fake:%d\n",fake);
+	if(!DpRt_Get_Property_Boolean("dprt.make_master_flat",&make_master_flat))
+		return FALSE;
+	fprintf(stdout,"DpRt_Make_Master_Flat:Make Master Flat Flag:%d\n",make_master_flat);
+	if(fake)
+	{
+		/* do nothing to fake this */
+		return TRUE;
+	}
+	else
+	{
+		if(make_master_flat)
+		{
+			fprintf(stdout,"DpRt_Make_Master_Flat:Calling Make Master Flat routine (dprt_process).\n");
+			retval = dprt_process(directory_name,MAKE_FLAT,&l1mean,&l1seeing, 
+					      &l1xpix,&l1ypix,&l1counts,&l1sat,&l1photom,&l1skybright);
+			fprintf(stdout,"DpRt_Make_Master_Flat:Make Master Flat routine (dprt_process) returned %d.\n",
+				retval);
+			if(retval == TRUE)
+			{
+				DpRt_Error_Number = dprt_err_int;
+				strcpy(DpRt_Error_String,dprt_err_str);
+				return FALSE;
+			}
+		}
+		else
+		{
+			fprintf(stdout,"DpRt_Make_Master_Flat:Make Master Flat Flag was FALSE:"
+				"Not making master flat.\n");
+		}
+	}
 	return TRUE;
 }
 
@@ -770,6 +655,418 @@ void DpRt_Get_Error_String(char *error_string)
 /* internal functions */
 /* ------------------------------------------------------- */
 /**
+ * This routine does a fake real time data reduction pipeline on a calibration file. It is invoked from the
+ * DpRt_Calibrate_Reduce routine.If the <a href="#DpRt_Get_Abort">DpRt_Get_Abort</a>
+ * routine returns TRUE during the execution of the pipeline the pipeline should abort it's
+ * current operation and return FALSE.
+ * @param input_filename The FITS filename to be processed.
+ * @param output_filename The resultant filename should be put in this variable. This variable is the
+ *       address of a pointer to a sequence of characters, hence it should be referenced using
+ *       <code>(*output_filename)</code> in this routine.
+ * @param meanCounts The address of a double to store the mean counts calculated by this routine.
+ * @param peakCounts The address of a double to store the peak counts calculated by this routine.
+ * @return The routine should return whether it succeeded or not. TRUE should be returned if the routine
+ *       succeeded and FALSE if they fail.
+ * @see DpRtLibrary.html
+ * @see #DpRt_Get_Abort
+ * @see #DpRt_Calibrate_Reduce
+ */
+static int Calibrate_Reduce_Fake(char *input_filename,char **output_filename,double *mean_counts,double *peak_counts)
+{
+	fitsfile *fp = NULL;
+	int retval=0,status=0,integer_value,naxis_one,naxis_two,i,j,value;
+	unsigned short *data = NULL;
+	double counts_count = 0.0;
+	int max_count = 0;
+
+/* set the error stuff to no error*/
+	DpRt_Error_Number = 0;
+	strcpy(DpRt_Error_String,"");
+/* setup return values */
+	(*mean_counts) = 0.0;
+	(*peak_counts) = 0.0;
+/* unset any previous aborts - ready to start processing */
+	DpRt_Set_Abort(FALSE);
+/* do processing  here */
+	fprintf(stderr,"Calibrate_Reduce_Fake(%s).\n",input_filename);
+/* open file */
+	retval = fits_open_file(&fp,input_filename,READONLY,&status);
+	if(retval)
+	{
+		fits_report_error(stderr,status);
+		DpRt_Error_Number = 23;
+		sprintf(DpRt_Error_String,"Calibrate_Reduce_Fake(%s): Open failed.\n",input_filename);
+		return FALSE;
+	}
+/* check bitpix */
+	retval = fits_read_key(fp,TINT,"BITPIX",&integer_value,NULL,&status);
+	if(retval)
+	{
+		fits_report_error(stderr,status);
+		DpRt_Error_Number = 24;
+		sprintf(DpRt_Error_String,"Calibrate_Reduce_Fake(%s): Failed to get BITPIX.\n",input_filename);
+		return FALSE;
+	}
+	if(integer_value != FITS_GET_DATA_BITPIX)
+	{
+		DpRt_Error_Number = 25;
+		sprintf(DpRt_Error_String,"Calibrate_Reduce_Fake(%s): Wrong BITPIX value(%d).\n",
+			input_filename,integer_value);
+		return FALSE;
+	}
+/* check naxis */
+	retval = fits_read_key(fp,TINT,"NAXIS",&integer_value,NULL,&status);
+	if(retval)
+	{
+		fits_report_error(stderr,status);
+		DpRt_Error_Number = 26;
+		sprintf(DpRt_Error_String,"Calibrate_Reduce_Fake(%s): Failed to get NAXIS.\n",input_filename);
+		return FALSE;
+	}
+	if(integer_value != FITS_GET_DATA_NAXIS)
+	{
+		DpRt_Error_Number = 27;
+		sprintf(DpRt_Error_String,"Calibrate_Reduce_Fake(%s): Wrong NAXIS value(%d).\n",
+			input_filename,integer_value);
+		return FALSE;
+	}
+/* get naxis1,naxis2 */
+	retval = fits_read_key(fp,TINT,"NAXIS1",&naxis_one,NULL,&status);
+	if(retval)
+	{
+		fits_report_error(stderr,status);
+		DpRt_Error_Number = 28;
+		sprintf(DpRt_Error_String,"Calibrate_Reduce_Fake(%s): Failed to get NAXIS1.\n",input_filename);
+		return FALSE;
+	}
+	retval = fits_read_key(fp,TINT,"NAXIS2",&naxis_two,NULL,&status);
+	if(retval)
+	{
+		fits_report_error(stderr,status);
+		DpRt_Error_Number = 29;
+		sprintf(DpRt_Error_String,"Calibrate_Reduce_Fake(%s): Failed to get NAXIS2.\n",input_filename);
+		return FALSE;
+	}
+/* allocate data */
+	data = (unsigned short *)malloc(naxis_one*naxis_two*sizeof(unsigned short));
+	if(data == NULL)
+	{
+		DpRt_Error_Number = 30;
+		sprintf(DpRt_Error_String,"Calibrate_Reduce_Fake(%s): Failed to allocate memory (%d,%d,%d).\n",
+			input_filename,naxis_one,naxis_two,naxis_one*naxis_two*sizeof(short));
+		return FALSE;
+	}
+/* read the data */
+	retval = fits_read_img(fp,TUSHORT,1,naxis_one*naxis_two,NULL,data,NULL,&status);
+	if(retval)
+	{
+		fits_report_error(stderr,status);
+		DpRt_Error_Number = 31;
+		sprintf(DpRt_Error_String,"Calibrate_Reduce_Fake(%s): Failed to read image(%d,%d).\n",
+			input_filename,naxis_one,naxis_two);
+		if(data != NULL)
+			free(data);
+		return FALSE;
+	}
+/* close file */
+	retval = fits_close_file(fp,&status);
+	if(retval)
+	{
+		fits_report_error(stderr,status);
+		DpRt_Error_Number = 32;
+		sprintf(DpRt_Error_String,"Calibrate_Reduce_Fake(%s): Failed to close file.\n",input_filename);
+		if(data != NULL)
+			free(data);
+		return FALSE;
+	}
+/* during processing regularily check the abort flag as below */
+	if(DpRt_Get_Abort())
+	{
+		/* tidy up anything that needs tidying as a result of this routine here */
+		(*mean_counts) = 0.0;
+		(*peak_counts) = 0.0;
+		(*output_filename) = NULL;
+		DpRt_Error_Number = 1;
+		sprintf(DpRt_Error_String,"Calibrate_Reduce_Fake(%s): Operation Aborted.\n",input_filename);
+		if(data != NULL)
+			free(data);
+		return FALSE;
+	}
+/* setup return values */
+	(*mean_counts) = 0.0;
+	(*peak_counts) = 0.0;
+	counts_count = 0.0;
+	max_count = 0;
+	for(j=0;j<naxis_two;j++)
+	{
+		for(i=0;i<naxis_one;i++)
+		{
+			value = (int)(data[(naxis_one*j)+i]);
+			counts_count += (double)value;
+			if(value>max_count)
+				max_count = value;
+		}
+		/* during processing regularily check the abort flag as below */
+		if(DpRt_Get_Abort())
+		{
+			/* tidy up anything that needs tidying as a result of this routine here */
+			(*mean_counts) = 0.0;
+			(*peak_counts) = 0.0;
+			(*output_filename) = NULL;
+			DpRt_Error_Number = 45;
+			sprintf(DpRt_Error_String,"Calibrate_Reduce_Fake(%s): Operation Aborted.\n",input_filename);
+			if(data != NULL)
+				free(data);
+			return FALSE;
+		}
+	}
+	if(data != NULL)
+		free(data);
+	(*mean_counts) = (float)(((double)counts_count)/((double)(naxis_one*naxis_two)));
+	(*peak_counts) = (float)max_count;
+/* setup filename - allocate space for string */
+	(*output_filename) = (char*)malloc((strlen(input_filename)+1)*sizeof(char));
+	/* if malloc fails it returns NULL - this is an error */
+	if((*output_filename) == NULL)
+	{
+		/* tidy up anything that needs tidying as a result of this routine here */
+		(*mean_counts) = 0.0;
+		(*peak_counts) = 0.0;
+		(*output_filename) = NULL;
+		DpRt_Error_Number = 2;
+		sprintf(DpRt_Error_String,"Calibrate_Reduce_Fake(%s): Memory Allocation Error.\n",input_filename);
+		return FALSE;
+	}
+/* set the filename to something more sensible here */
+	strcpy((*output_filename),input_filename);
+	return TRUE;
+}
+
+/**
+ * This routine does the fake data reduction pipeline on an expose file. It is usually invoked from the
+ * DpRt_Expose_Reduce routine. If the DpRt_Get_Abort routine returns TRUE during the execution of the pipeline 
+ * the pipeline should abort it's current operation and return FALSE.
+ * @param input_filename The FITS filename to be processed.
+ * @param output_filename The resultant filename should be put in this variable. This variable is the
+ *       address of a pointer to a sequence of characters, hence it should be referenced using
+ *       <code>(*output_filename)</code> in this routine.
+ * @param seeing The address of a double to store the seeing calculated by this routine.
+ * @param counts The address of a double to store the counts of th brightest pixel calculated by this
+ *       routine.
+ * @param x_pix The x pixel position of the brightest object in the field. Note this is an average pixel
+ *       number that may not be a whole number of pixels.
+ * @param y_pix The y pixel position of the brightest object in the field. Note this is an average pixel
+ *       number that may not be a whole number of pixels.
+ * @param photometricity In units of magnitudes of extinction. This is only filled in for standard field
+ * 	reductions.
+ * @param sky_brightness In units of magnitudes per arcsec&#178;. This is an estimate of sky brightness.
+ * @param saturated This is a boolean, returning TRUE if the object is saturated.
+ * @return The routine should return whether it succeeded or not. TRUE should be returned if the routine
+ *       succeeded and FALSE if they fail.
+ * @see DpRtLibrary.html
+ * @see #DpRt_Get_Abort
+ */
+static int Expose_Reduce_Fake(char *input_filename,char **output_filename,double *seeing,double *counts,
+	double *x_pix,double *y_pix,double *photometricity,double *sky_brightness,int *saturated)
+{
+	fitsfile *fp = NULL;
+	int retval=0,status=0,integer_value,naxis_one,naxis_two,i,j,value;
+	unsigned short *data = NULL;
+	double telfocus,best_focus,fwhm_per_mm,atmospheric_seeing,atmospheric_variation,error;
+	char *ch = NULL;
+
+	/* set the error stuff to no error*/
+	DpRt_Error_Number = 0;
+	strcpy(DpRt_Error_String,"");
+
+/* unset any previous aborts - ready to start processing */
+	DpRt_Set_Abort(FALSE);
+/* do processing  here */
+	fprintf(stderr,"Expose_Reduce_Fake(%s).\n",input_filename);
+/* setup return values */
+	(*output_filename) = NULL;
+	(*seeing) = 0.0;
+	(*counts) = 0.0;
+	(*x_pix) = 0.0;
+	(*y_pix) = 0.0;
+	(*photometricity) = 0.0;
+	(*sky_brightness) = 0.0;
+	(*saturated) = FALSE;
+/* get parameters from config */
+	if(!DpRt_Get_Property_Double("dprt.telfocus.best_focus",&best_focus))
+		return FALSE;
+	if(!DpRt_Get_Property_Double("dprt.telfocus.fwhm_per_mm",&fwhm_per_mm))
+		return FALSE;
+	if(!DpRt_Get_Property_Double("dprt.telfocus.atmospheric_seeing",&atmospheric_seeing))
+		return FALSE;
+	if(!DpRt_Get_Property_Double("dprt.telfocus.atmospheric_variation",&atmospheric_variation))
+		return FALSE;
+/* open file */
+	retval = fits_open_file(&fp,input_filename,READONLY,&status);
+	if(retval)
+	{
+		fits_report_error(stderr,status);
+		DpRt_Error_Number = 33;
+		sprintf(DpRt_Error_String,"Expose_Reduce_Fake(%s): Open failed.\n",input_filename);
+		return FALSE;
+	}
+/* check bitpix */
+	retval = fits_read_key(fp,TINT,"BITPIX",&integer_value,NULL,&status);
+	if(retval)
+	{
+		fits_report_error(stderr,status);
+		DpRt_Error_Number = 34;
+		sprintf(DpRt_Error_String,"Expose_Reduce_Fake(%s): Failed to get BITPIX.\n",input_filename);
+		return FALSE;
+	}
+	if(integer_value != FITS_GET_DATA_BITPIX)
+	{
+		DpRt_Error_Number = 35;
+		sprintf(DpRt_Error_String,"Expose_Reduce_Fake(%s): Wrong BITPIX value(%d).\n",
+			input_filename,integer_value);
+		return FALSE;
+	}
+/* check naxis */
+	retval = fits_read_key(fp,TINT,"NAXIS",&integer_value,NULL,&status);
+	if(retval)
+	{
+		fits_report_error(stderr,status);
+		DpRt_Error_Number = 36;
+		sprintf(DpRt_Error_String,"Expose_Reduce_Fake(%s): Failed to get NAXIS.\n",input_filename);
+		return FALSE;
+	}
+	if(integer_value != FITS_GET_DATA_NAXIS)
+	{
+		DpRt_Error_Number = 37;
+		sprintf(DpRt_Error_String,"Expose_Reduce_Fake(%s): Wrong NAXIS value(%d).\n",
+			input_filename,integer_value);
+		return FALSE;
+	}
+/* get naxis1,naxis2 */
+	retval = fits_read_key(fp,TINT,"NAXIS1",&naxis_one,NULL,&status);
+	if(retval)
+	{
+		fits_report_error(stderr,status);
+		DpRt_Error_Number = 38;
+		sprintf(DpRt_Error_String,"Expose_Reduce_Fake(%s): Failed to get NAXIS1.\n",input_filename);
+		return FALSE;
+	}
+	retval = fits_read_key(fp,TINT,"NAXIS2",&naxis_two,NULL,&status);
+	if(retval)
+	{
+		fits_report_error(stderr,status);
+		DpRt_Error_Number = 39;
+		sprintf(DpRt_Error_String,"Expose_Reduce_Fake(%s): Failed to get NAXIS2.\n",input_filename);
+		return FALSE;
+	}
+/* get telescope focus */
+	retval = fits_read_key(fp,TDOUBLE,"TELFOCUS",&telfocus,NULL,&status);
+	if(retval)
+	{
+		fits_report_error(stderr,status);
+		DpRt_Error_Number = 40;
+		sprintf(DpRt_Error_String,"Expose_Reduce_Fake(%s): Failed to get TELFOCUS.\n",input_filename);
+		return FALSE;
+	}
+/* allocate data */
+	data = (unsigned short *)malloc(naxis_one*naxis_two*sizeof(unsigned short));
+	if(data == NULL)
+	{
+		DpRt_Error_Number = 41;
+		sprintf(DpRt_Error_String,"Expose_Reduce_Fake(%s): Failed to allocate memory (%d,%d,%d).\n",
+			input_filename,naxis_one,naxis_two,naxis_one*naxis_two*sizeof(short));
+		return FALSE;
+	}
+/* read the data */
+	retval = fits_read_img(fp,TUSHORT,1,naxis_one*naxis_two,NULL,data,NULL,&status);
+	if(retval)
+	{
+		fits_report_error(stderr,status);
+		DpRt_Error_Number = 42;
+		sprintf(DpRt_Error_String,"Expose_Reduce_Fake(%s): Failed to read image(%d,%d).\n",
+			input_filename,naxis_one,naxis_two);
+		if(data != NULL)
+			free(data);
+		return FALSE;
+	}
+/* close file */
+	retval = fits_close_file(fp,&status);
+	if(retval)
+	{
+		fits_report_error(stderr,status);
+		DpRt_Error_Number = 43;
+		sprintf(DpRt_Error_String,"Expose_Reduce_Fake(%s): Failed to close file.\n",input_filename);
+		if(data != NULL)
+			free(data);
+		return FALSE;
+	}
+/* during processing regularily check the abort flag as below */
+	if(DpRt_Get_Abort())
+	{
+		/* tidy up anything that needs tidying as a result of this routine here */
+		(*output_filename) = NULL;
+		DpRt_Error_Number = 44;
+		sprintf(DpRt_Error_String,"Expose_Reduce_Fake(%s): Operation Aborted.\n",input_filename);
+		if(data != NULL)
+			free(data);
+		return FALSE;
+	}
+/* get counts,x_pix,y_pix */
+	for(j=0;j<naxis_two;j++)
+	{
+		for(i=0;i<naxis_one;i++)
+		{
+			value = (int)(data[(naxis_one*j)+i]);
+			if(value> (*counts))
+			{
+				(*counts) = value;
+				(*x_pix) = i;
+				(*y_pix) = j;
+			}
+		}
+	}
+	if(data != NULL)
+		free(data);
+/* during processing regularily check the abort flag as below */
+	if(DpRt_Get_Abort())
+	{
+		/* tidy up anything that needs tidying as a result of this routine here */
+		(*output_filename) = NULL;
+		DpRt_Error_Number = 3;
+		sprintf(DpRt_Error_String,"Expose_Reduce_Fake(%s): Operation Aborted.\n",input_filename);
+		return FALSE;
+	}
+
+	/* setup return values */
+	ch = strstr(input_filename,"telFocus");
+	if(ch != NULL)
+	{
+		error = (atmospheric_variation*((double)rand()))/((double)RAND_MAX);
+		(*seeing) = (pow((telfocus-best_focus),2.0)*(fwhm_per_mm-atmospheric_seeing))+
+				atmospheric_seeing+error;
+		fprintf(stderr,"Expose_Reduce_Fake:telfocus %.2f:seeing set to %.2f.\n",telfocus,(*seeing));
+	}
+	else
+	{
+		(*seeing) = ((float)(rand()%50))/10.0;
+	}
+/* setup filename - allocate space for string */
+	(*output_filename) = (char*)malloc((strlen(input_filename)+1)*sizeof(char));
+/* if malloc fails it returns NULL - this is an error */
+	if((*output_filename) == NULL)
+	{
+		/* tidy up anything that needs tidying as a result of this routine here */
+		(*output_filename) = NULL;
+		DpRt_Error_Number = 4;
+		sprintf(DpRt_Error_String,"Expose_Reduce_Fake(%s): Memory Allocation Error.\n",input_filename);
+		return FALSE;
+	}
+/* set the filename to something more sensible here */
+	strcpy((*output_filename),input_filename);
+	return TRUE;
+}
+
+/**
  * A routine to get the current value of the abort variable, to determine whether we should abort
  * processing the FITS file or not.
  * @return The current value of the DpRt_Data.DpRt_Abort variable, usually TRUE if we want to abort a reduction process
@@ -939,6 +1236,9 @@ static int DpRt_Get_Property_Boolean_From_C_File(char *keyword,int *value)
 
 /*
 ** $Log: not supported by cvs2svn $
+** Revision 0.7  2002/05/20 11:02:09  cjm
+** Added photometricity, sky_brightness and saturated to DpRt_Expose_Reduce.
+**
 ** Revision 0.6  2002/05/20 10:44:17  cjm
 ** Added property interaction routines.
 **
