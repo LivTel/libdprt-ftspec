@@ -1,11 +1,11 @@
 /* dprt.c -*- mode: Fundamental;-*-
 ** Entry point for Data Pipeline Reduction Routines
-** $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/dprt.c,v 0.6 2002-05-20 10:44:17 cjm Exp $
+** $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/dprt.c,v 0.7 2002-05-20 11:02:09 cjm Exp $
 */
 /**
  * dprt.c is the entry point for the Data Reduction Pipeline (Real Time).
  * @author Lee Howells, LJMU
- * @version $Revision: 0.6 $
+ * @version $Revision: 0.7 $
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,7 +36,7 @@
 /**
  * Revision Control System identifier.
  */
-static char rcsid[] = "$Id: dprt.c,v 0.6 2002-05-20 10:44:17 cjm Exp $";
+static char rcsid[] = "$Id: dprt.c,v 0.7 2002-05-20 11:02:09 cjm Exp $";
 /**
  * Internal Error Number - set this to a unique value for each location an error occurs.
  */
@@ -344,13 +344,17 @@ int DpRt_Calibrate_Reduce(char *input_filename,char **output_filename,double *me
  *       number that may not be a whole number of pixels.
  * @param y_pix The y pixel position of the brightest object in the field. Note this is an average pixel
  *       number that may not be a whole number of pixels.
+ * @param photometricity In units of magnitudes of extinction. This is only filled in for standard field
+ * 	reductions.
+ * @param sky_brightness In units of magnitudes per arcsec&#178;. This is an estimate of sky brightness.
+ * @param saturated This is a boolean, returning TRUE if the object is saturated.
  * @return The routine should return whether it succeeded or not. TRUE should be returned if the routine
  *       succeeded and FALSE if they fail.
  * @see DpRtLibrary.html
  * @see #DpRt_Get_Abort
  */
 int DpRt_Expose_Reduce(char *input_filename,char **output_filename,double *seeing,double *counts,double *x_pix,
-		       double *y_pix)
+		       double *y_pix,double *photometricity,double *sky_brightness,int *saturated)
 {
 	fitsfile *fp = NULL;
 	int retval=0,status=0,integer_value,naxis_one,naxis_two,i,j,value;
@@ -372,6 +376,9 @@ int DpRt_Expose_Reduce(char *input_filename,char **output_filename,double *seein
 	(*counts) = 0.0;
 	(*x_pix) = 0.0;
 	(*y_pix) = 0.0;
+	(*photometricity) = 0.0;
+	(*sky_brightness) = 0.0;
+	(*saturated) = FALSE;
 /* get parameters from config */
 	if(!DpRt_Get_Property_Double("dprt.telfocus.best_focus",&best_focus))
 		return FALSE;
@@ -484,10 +491,6 @@ int DpRt_Expose_Reduce(char *input_filename,char **output_filename,double *seein
 	if(DpRt_Get_Abort())
 	{
 		/* tidy up anything that needs tidying as a result of this routine here */
-		(*seeing) = 0.0;
-		(*counts) = 0.0;
-		(*x_pix) = 0.0;
-		(*y_pix) = 0.0;
 		(*output_filename) = NULL;
 		DpRt_Error_Number = 44;
 		sprintf(DpRt_Error_String,"DpRt_Expose_Reduce(%s): Operation Aborted.\n",input_filename);
@@ -516,10 +519,6 @@ int DpRt_Expose_Reduce(char *input_filename,char **output_filename,double *seein
 	{
 		/* tidy up anything that needs tidying as a result of this routine here */
 		(*output_filename) = NULL;
-		(*seeing) = 0.0;
-		(*counts) = 0.0;
-		(*x_pix) = 0.0;
-		(*y_pix) = 0.0;
 		DpRt_Error_Number = 3;
 		sprintf(DpRt_Error_String,"DpRt_Expose_Reduce(%s): Operation Aborted.\n",input_filename);
 		return FALSE;
@@ -545,10 +544,6 @@ int DpRt_Expose_Reduce(char *input_filename,char **output_filename,double *seein
 	{
 		/* tidy up anything that needs tidying as a result of this routine here */
 		(*output_filename) = NULL;
-		(*seeing) = 0.0;
-		(*counts) = 0.0;
-		(*x_pix) = 0.0;
-		(*y_pix) = 0.0;
 		DpRt_Error_Number = 4;
 		sprintf(DpRt_Error_String,"DpRt_Expose_Reduce(%s): Memory Allocation Error.\n",input_filename);
 		return FALSE;
@@ -944,6 +939,9 @@ static int DpRt_Get_Property_Boolean_From_C_File(char *keyword,int *value)
 
 /*
 ** $Log: not supported by cvs2svn $
+** Revision 0.6  2002/05/20 10:44:17  cjm
+** Added property interaction routines.
+**
 ** Revision 0.5  2001/05/17 10:04:35  cjm
 ** Added <math.h> include.
 **
