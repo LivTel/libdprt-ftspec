@@ -1,9 +1,8 @@
-# $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/Makefile,v 0.4 1999-08-24 16:05:29 cjm Exp $
+# $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/Makefile,v 0.5 1999-08-31 12:50:15 cjm Exp $
 
 include	../../Makefile.common
 include	../Makefile.common
 
-LIBDIR 		= $(LT_BIN_HOME)/lib
 INCDIR 		= $(DPRT_SRC_HOME)/include
 DOCSDIR 	= $(DPRT_DOC_HOME)/cdocs
 CFLAGS 		= -g $(CCHECKFLAG) -I$(INCDIR) -I$(JNIINCDIR) -I$(JNIMDINCDIR)
@@ -16,14 +15,14 @@ DOCS 		= $(SRCS:%.c=$(DOCSDIR)/%.html)
 
 top: shared docs
 
-shared: $(LIBDIR)/libdprt.so
+shared: $(LT_LIB_HOME)/libdprt.so
 
-$(LIBDIR)/libdprt.so: $(OBJS)
+$(LT_LIB_HOME)/libdprt.so: $(OBJS)
 	cc $(CCSHAREDFLAG) $(CFLAGS) $(OBJS) -o $@ $(TIMELIB)
 
-static: $(LIBDIR)/libdprt.a
+static: $(LT_LIB_HOME)/libdprt.a
 
-$(LIBDIR)/libdprt.a: $(OBJS)
+$(LT_LIB_HOME)/libdprt.a: $(OBJS)
 	ar rcv $@ $?
 
 docs: $(DOCS)
@@ -49,7 +48,7 @@ lint:
 	$(LINT)	$(LINTFLAGS) $(SRCS)
 
 clean:
-	-$(RM) $(RM_OPTIONS) $(OBJS) $(LIBDIR)/libdprt.so $(LIBDIR)/libdprt.a $(TIDY_OPTIONS)
+	-$(RM) $(RM_OPTIONS) $(OBJS) $(LT_LIB_HOME)/libdprt.so $(LT_LIB_HOME)/libdprt.a $(TIDY_OPTIONS)
 
 tidy:
 	-$(RM)  $(RM_OPTIONS) $(TIDY_OPTIONS)
@@ -57,6 +56,10 @@ tidy:
 
 #
 # $Log: not supported by cvs2svn $
+# Revision 0.4  1999/08/24 16:05:29  cjm
+# Changed for libccd1 directory structure.
+# Improved docs rule.
+#
 # Revision 0.3  1999/07/12 16:05:00  cjm
 # Changes to ignore CDoc return value.
 #
