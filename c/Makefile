@@ -1,11 +1,11 @@
-# $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/Makefile,v 0.8 2001-05-15 18:38:38 cjm Exp $
+# $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/Makefile,v 0.9 2002-05-20 10:40:04 cjm Exp $
 
 include	../../Makefile.common
 include	../Makefile.common
 
 INCDIR 		= $(LIBDPRT_SRC_HOME)/include
 DOCSDIR 	= $(LIBDPRT_DOC_HOME)/cdocs
-CFLAGS 		= -g $(CCHECKFLAG) -I$(INCDIR) -I$(JNIINCDIR) -I$(JNIMDINCDIR)
+CFLAGS 		= -g $(CCHECKFLAG) -I$(INCDIR) -I$(CFITSIOINCDIR) -I$(JNIINCDIR) -I$(JNIMDINCDIR) -L$(LT_LIB_HOME)
 LINTFLAGS 	= -I$(INCDIR) -I$(JNIINCDIR) -I$(JNIMDINCDIR)
 DOCFLAGS 	= -static
 SRCS 		= DpRtLibrary.c dprt.c
@@ -22,7 +22,7 @@ $(INCDIR)/DpRtLibrary.h: $(DPRT_BIN_HOME)/java/DpRtLibrary.class
 	$(TOUCH) $@
 
 $(LT_LIB_HOME)/libdprt.so: $(OBJS)
-	cc $(CCSHAREDFLAG) $(CFLAGS) $(OBJS) -o $@ $(TIMELIB)
+	cc $(CCSHAREDFLAG) $(CFLAGS) $(OBJS) -o $@ $(TIMELIB) -lcfitsio $(SOCKETLIB)
 
 static: $(LT_LIB_HOME)/libdprt.a
 
@@ -66,6 +66,9 @@ backup: tidy
 
 #
 # $Log: not supported by cvs2svn $
+# Revision 0.8  2001/05/15 18:38:38  cjm
+# Split dprt into libdprt.
+#
 # Revision 0.7  1999/12/10 12:21:44  cjm
 # Added backup target.
 #
@@ -92,18 +95,33 @@ backup: tidy
 #
 # DO NOT DELETE
 
-DpRtLibrary.o: /usr/include/stdio.h /usr/include/sys/feature_tests.h
-DpRtLibrary.o: /usr/include/sys/isa_defs.h /usr/include/sys/va_list.h
-DpRtLibrary.o: /usr/include/stdio_tag.h /usr/include/stdio_impl.h
-DpRtLibrary.o: /usr/include/stdlib.h /usr/java1.2/include/jni.h
-DpRtLibrary.o: /usr/include/stdarg.h /usr/java1.2/include/solaris/jni_md.h
-DpRtLibrary.o: /usr/include/sys/types.h /usr/include/sys/machtypes.h
-DpRtLibrary.o: /usr/include/sys/int_types.h /usr/include/sys/select.h
-DpRtLibrary.o: /usr/include/sys/time.h /usr/include/sys/time.h
-DpRtLibrary.o: /usr/include/limits.h
-DpRtLibrary.o: /space/home/dev/src/libdprt/include/dprt.h
-dprt.o: /usr/include/stdio.h /usr/include/sys/feature_tests.h
-dprt.o: /usr/include/sys/isa_defs.h /usr/include/sys/va_list.h
-dprt.o: /usr/include/stdio_tag.h /usr/include/stdio_impl.h
-dprt.o: /usr/include/stdlib.h /usr/include/string.h
-dprt.o: /space/home/dev/src/libdprt/include/dprt.h
+DpRtLibrary.o: /usr/include/stdio.h /usr/include/features.h
+DpRtLibrary.o: /usr/include/sys/cdefs.h /usr/include/gnu/stubs.h
+DpRtLibrary.o: /usr/lib/gcc-lib/i386-redhat-linux/egcs-2.91.66/include/stddef.h
+DpRtLibrary.o: /usr/lib/gcc-lib/i386-redhat-linux/egcs-2.91.66/include/stdarg.h
+DpRtLibrary.o: /usr/include/bits/types.h /usr/include/libio.h
+DpRtLibrary.o: /usr/include/_G_config.h /usr/include/bits/stdio_lim.h
+DpRtLibrary.o: /usr/include/stdlib.h /usr/include/sys/types.h
+DpRtLibrary.o: /usr/include/time.h /usr/include/endian.h
+DpRtLibrary.o: /usr/include/bits/endian.h /usr/include/sys/select.h
+DpRtLibrary.o: /usr/include/bits/select.h /usr/include/bits/sigset.h
+DpRtLibrary.o: /usr/include/sys/sysmacros.h /usr/include/alloca.h
+DpRtLibrary.o: /usr/local/jdk1.2.2/include/jni.h
+DpRtLibrary.o: /usr/local/jdk1.2.2/include/linux/jni_md.h
+DpRtLibrary.o: /home/dev/src/libdprt/include/dprt.h
+dprt.o: /usr/include/stdio.h /usr/include/features.h /usr/include/sys/cdefs.h
+dprt.o: /usr/include/gnu/stubs.h
+dprt.o: /usr/lib/gcc-lib/i386-redhat-linux/egcs-2.91.66/include/stddef.h
+dprt.o: /usr/lib/gcc-lib/i386-redhat-linux/egcs-2.91.66/include/stdarg.h
+dprt.o: /usr/include/bits/types.h /usr/include/libio.h
+dprt.o: /usr/include/_G_config.h /usr/include/bits/stdio_lim.h
+dprt.o: /usr/include/stdlib.h /usr/include/sys/types.h /usr/include/time.h
+dprt.o: /usr/include/endian.h /usr/include/bits/endian.h
+dprt.o: /usr/include/sys/select.h /usr/include/bits/select.h
+dprt.o: /usr/include/bits/sigset.h /usr/include/sys/sysmacros.h
+dprt.o: /usr/include/alloca.h /usr/include/string.h /usr/include/math.h
+dprt.o: /usr/include/bits/huge_val.h /usr/include/bits/mathdef.h
+dprt.o: /usr/include/bits/mathcalls.h
+dprt.o: /usr/lib/gcc-lib/i386-redhat-linux/egcs-2.91.66/include/float.h
+dprt.o: /home/dev/src/cfitsio/fitsio.h /home/dev/src/cfitsio/longnam.h
+dprt.o: /home/dev/src/libdprt/include/dprt.h
