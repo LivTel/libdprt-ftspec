@@ -1,4 +1,4 @@
-# $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/Makefile,v 0.6 1999-09-08 13:56:34 cjm Exp $
+# $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/Makefile,v 0.7 1999-12-10 12:21:44 cjm Exp $
 
 include	../../Makefile.common
 include	../Makefile.common
@@ -30,13 +30,15 @@ docs: $(DOCS)
 $(DOCS) : $(SRCS)
 	-$(CDOC) -d $(DOCSDIR) -h $(INCDIR) $(DOCFLAGS) $(SRCS)
 
+# dont checkout DpRtLibrary.h - it is a machine built header
 checkout:
 	$(CO) $(CO_OPTIONS) $(SRCS)
-	cd $(INCDIR); $(CO) $(CO_OPTIONS) $(HEADERS);
+	cd $(INCDIR); $(CO) $(CO_OPTIONS) dprt.h;
 
+# dont checkin DpRtLibrary.h - it is a machine built header
 checkin:
 	-$(CI) $(CI_OPTIONS) $(SRCS)
-	-(cd $(INCDIR); $(CI) $(CI_OPTIONS) $(HEADERS);)
+	-(cd $(INCDIR); $(CI) $(CI_OPTIONS) dprt.h;)
 
 staticdepend:
 	makedepend -- $(CFLAGS) -- $(SRCS)
@@ -54,8 +56,14 @@ tidy:
 	-$(RM)  $(RM_OPTIONS) $(TIDY_OPTIONS)
 	-cd $(INCDIR); $(RM) $(RM_OPTIONS) $(TIDY_OPTIONS);
 
+backup: tidy
+	-$(RM) $(RM_OPTIONS) $(OBJS)
+
 #
 # $Log: not supported by cvs2svn $
+# Revision 0.6  1999/09/08 13:56:34  cjm
+# Changed checkin target to use CI_OPTIONS.
+#
 # Revision 0.5  1999/08/31 12:50:15  cjm
 # Changed LIBDIR to LT_LIB_HOME.
 #
