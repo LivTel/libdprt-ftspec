@@ -1,11 +1,11 @@
 /* dprt.c
 ** Entry point for Data Pipeline Reduction Routines
-** $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/dprt.c,v 0.3 1999-08-24 16:04:30 cjm Exp $
+** $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/dprt.c,v 0.4 2001-05-15 15:34:11 cjm Exp $
 */
 /**
  * dprt.c is the entry point for the Data Reduction Pipeline (Real Time).
  * @author Lee Howells, LJMU
- * @version $Revision: 0.3 $
+ * @version $Revision: 0.4 $
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,7 +18,7 @@
 /**
  * Revision Control System identifier.
  */
-static char rcsid[] = "$Id: dprt.c,v 0.3 1999-08-24 16:04:30 cjm Exp $";
+static char rcsid[] = "$Id: dprt.c,v 0.4 2001-05-15 15:34:11 cjm Exp $";
 /**
  * Internal Error Number - set this to a unique value for each location an error occurs.
  */
@@ -138,6 +138,8 @@ int DpRt_Calibrate_Reduce(char *input_filename,char **output_filename,double *me
 int DpRt_Expose_Reduce(char *input_filename,char **output_filename,double *seeing,double *counts,double *x_pix,
 		       double *y_pix)
 {
+  int telfocus_number;
+
   /* set the error stuff to no error*/
   DpRt_Error_Number = 0;
   strcpy(DpRt_Error_String,"");
@@ -163,7 +165,16 @@ int DpRt_Expose_Reduce(char *input_filename,char **output_filename,double *seein
   }
 
   /* setup return values */
-  (*seeing) = 1.0;
+  if(strncmp(input_filename,"telFocus",8)==0)
+    {
+      sscanf(input_filename,"telFocus%d.fits",&telfocus_number);
+      (*seeing) = pow(((float)telfocus_number-5.0)/7.0,2.0)+0.1;
+      fprintf(stderr,"telfocus %d:seeing set to %.2f.\n",telfocus_number,(*seeing));
+    }
+  else
+    {
+      (*seeing) = ((float)(rand()%50))/10.0;
+    }
   (*counts) = 2.0;
   (*x_pix) = 3.0;
   (*y_pix) = 4.0;
@@ -241,6 +252,9 @@ static int DpRt_Get_Abort(void)
 
 /*
 ** $Log: not supported by cvs2svn $
+** Revision 0.3  1999/08/24 16:04:30  cjm
+** Changed DpRt_Abort comment so CDoc could parse it correctly.
+**
 ** Revision 0.2  1999/06/30 15:07:47  dev
 ** changes to return when error occurs in reduction code
 ** set return paramaters to 0/NULL.
