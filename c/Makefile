@@ -1,18 +1,21 @@
-# $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/Makefile,v 0.10 2002-05-20 11:34:45 cjm Exp $
+# $Header: /space/home/eng/cjm/cvs/libdprt-ftspec/c/Makefile,v 0.11 2002-11-26 18:13:11 cjm Exp $
 
 include	../../Makefile.common
 include	../Makefile.common
 
 INCDIR 		= $(LIBDPRT_SRC_HOME)/include
+RJSINCDIR	= $(LIBDPRT_SRC_HOME)/rjs
 DOCSDIR 	= $(LIBDPRT_DOC_HOME)/cdocs
 BINDIR		= $(LIBDPRT_BIN_HOME)/c/$(HOSTTYPE)
-CFLAGS 		= -g $(CCHECKFLAG) -I$(INCDIR) -I$(CFITSIOINCDIR) -I$(JNIINCDIR) -I$(JNIMDINCDIR) -L$(LT_LIB_HOME)
+CFLAGS 		= -g $(CCHECKFLAG) -I$(INCDIR) -I$(CFITSIOINCDIR) -I$(JNIINCDIR) -I$(JNIMDINCDIR) -I $(RJSINCDIR) \
+		-L$(LT_LIB_HOME)
 LINTFLAGS 	= -I$(INCDIR) -I$(JNIINCDIR) -I$(JNIMDINCDIR)
 DOCFLAGS 	= -static
-SRCS 		= DpRtLibrary.c dprt.c
+SRCS 		= dprt.c DpRtLibrary.c
 HEADERS		= $(SRCS:%.c=%.h)
 OBJS		= $(SRCS:%.c=$(BINDIR)/%.o)
 DOCS 		= $(SRCS:%.c=$(DOCSDIR)/%.html)
+LIBS		= -lcfitsio -lrjs_dprt
 
 top: shared docs
 
@@ -23,7 +26,7 @@ $(INCDIR)/DpRtLibrary.h: $(DPRT_BIN_HOME)/java/DpRtLibrary.class
 	$(TOUCH) $@
 
 $(LT_LIB_HOME)/libdprt.so: $(OBJS)
-	$(CC) $(CCSHAREDFLAG) $(CFLAGS) $(OBJS) -o $@ $(TIMELIB) -lcfitsio $(SOCKETLIB)
+	$(CC) $(CCSHAREDFLAG) $(CFLAGS) $(OBJS) -o $@ $(TIMELIB) $(LIBS) $(SOCKETLIB)
 
 $(BINDIR)/%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -70,6 +73,9 @@ backup: tidy
 
 #
 # $Log: not supported by cvs2svn $
+# Revision 0.10  2002/05/20 11:34:45  cjm
+# Moved object files to binary tree.
+#
 # Revision 0.9  2002/05/20 10:40:04  cjm
 # Added libraries to link against.
 #
